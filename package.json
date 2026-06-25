@@ -1,6 +1,6 @@
 {
   "name": "csa-doc-create-from-excel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CSA Adesioni — compilazione automatica del Modulo di Adesione dal flusso Excel AXA (by ThinkPink Studio)",
   "author": {
     "name": "ThinkPink Studio",
@@ -39,7 +39,9 @@
     "protocols": [
       {
         "name": "CSA Adesioni",
-        "schemes": ["csadoc"]
+        "schemes": [
+          "csadoc"
+        ]
       }
     ],
     "directories": {
@@ -62,7 +64,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
