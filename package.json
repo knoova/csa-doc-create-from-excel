@@ -1,0 +1,75 @@
+{
+  "name": "csa-doc-create-from-excel",
+  "version": "1.0.0",
+  "description": "CSA Adesioni — compilazione automatica del Modulo di Adesione dal flusso Excel AXA (by ThinkPink Studio)",
+  "author": {
+    "name": "ThinkPink Studio",
+    "email": "info@thinkpinkstudio.it"
+  },
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "test": "node --test --no-warnings test/",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "docxtemplater": "^3.50.0",
+    "electron-log": "^5.4.4",
+    "exceljs": "^4.4.0",
+    "i18next": "^23.7.6",
+    "nodemailer": "^6.9.14",
+    "pizzip": "^3.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^14.0.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "electron-vite": "^2.0.0",
+    "vite": "^5.0.12"
+  },
+  "build": {
+    "appId": "it.thinkpinkstudio.csa-adesioni",
+    "productName": "CSA Adesioni",
+    "icon": "assets/icon.png",
+    "protocols": [
+      {
+        "name": "CSA Adesioni",
+        "schemes": ["csadoc"]
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "templates/modulo_template.docx",
+        "to": "templates/modulo_template.docx"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

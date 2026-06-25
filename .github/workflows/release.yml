@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Pipeline unica: bump -> build (Windows) -> release nello stesso run.
+# Un push fatto col GITHUB_TOKEN (il commit di bump) NON innesca altri workflow,
+# quindi facciamo tutto in un solo run.
+jobs:
+  bump:
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      short_sha: ${{ steps.bump.outputs.short_sha }}
+      full_sha: ${{ steps.bump.outputs.full_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          NEW=$(node -e "const [a,b,c]='$CURRENT'.split('.').map(Number);console.log(a+'.'+b+'.'+(c+1));")
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='$NEW';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          git add package.json
+          git commit -m "chore: bump version to $NEW"
+          git push
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "full_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: bump
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.full_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app (electron-vite)
+        run: npm run build
+        env:
+          UPDATE_DOWNLOAD_URL: ${{ vars.UPDATE_DOWNLOAD_URL }}
+
+      - name: Build Windows installer (NSIS)
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-win
+          path: |
+            dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
+          if-no-files-found: warn
+
+  release:
+    needs: [bump, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-all
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.bump.outputs.version }}-${{ needs.bump.outputs.short_sha }}
+          name: CSA Adesioni v${{ needs.bump.outputs.version }}
+          target_commitish: ${{ needs.bump.outputs.full_sha }}
+          body: |
+            Build automatica (Windows) dal commit `${{ needs.bump.outputs.short_sha }}`.
+
+            | Piattaforma | File |
+            |-------------|------|
+            | Windows     | `.exe` (installer NSIS x64) |
+          files: dist-all/*
+          fail_on_unmatched_files: false
