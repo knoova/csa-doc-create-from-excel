@@ -1,11 +1,19 @@
 /**
- * Lettura di .env.local (SMTP + domini autorizzati). Serve in sviluppo: in
- * produzione i valori vengono dalle Configurazioni (vedi settingsService, che
- * usa questi come default al primo avvio). Nessuna dipendenza esterna.
+ * Configurazione SMTP + domini autorizzati.
+ *
+ * Due sorgenti, con precedenza:
+ *   1. `.env.local` nella cartella del progetto → usato in SVILUPPO.
+ *   2. valori "baked" a build-time (__APP_ENV__) → usati nella versione COMPILATA,
+ *      dove .env.local non esiste. In CI arrivano dai GitHub Secrets (vedi
+ *      electron.vite.config.mjs + .github/workflows/release.yml).
+ *
+ * In produzione restano comunque modificabili da Configurazioni → Accesso e SMTP.
  */
 import { readFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { app } from 'electron'
+
+/* global __APP_ENV__ */
 
 function candidatePaths() {
   const list = []
@@ -33,16 +41,23 @@ function parseEnv(text) {
   return out
 }
 
+function readFileEnv() {
+  for (const p of candidatePaths()) {
+    try { if (existsSync(p)) return parseEnv(readFileSync(p, 'utf-8')) } catch (_) {}
+  }
+  return {}
+}
+
+function bakedEnv() {
+  try { return (typeof __APP_ENV__ !== 'undefined' && __APP_ENV__) ? __APP_ENV__ : {} } catch (_) { return {} }
+}
+
 let cached = null
 
 export function getEnvConfig() {
   if (cached) return cached
-  let env = {}
-  for (const p of candidatePaths()) {
-    try {
-      if (existsSync(p)) { env = parseEnv(readFileSync(p, 'utf-8')); break }
-    } catch (_) {}
-  }
+  // .env.local (dev) ha precedenza sui valori baked (produzione)
+  const env = { ...bakedEnv(), ...readFileEnv() }
   cached = {
     smtp: {
       host: env.SMTP_HOST || '',
