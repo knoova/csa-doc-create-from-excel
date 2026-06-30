@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar.jsx'
 import TitleBar from './components/TitleBar.jsx'
 import Login from './pages/Login.jsx'
 import Adesioni from './pages/Adesioni.jsx'
+import Record from './pages/Record.jsx'
 import Configurazioni from './pages/Configurazioni.jsx'
 import Registro from './pages/Registro.jsx'
 import Contacts from './pages/Contacts.jsx'
@@ -116,6 +117,9 @@ export default function App() {
         <main id="main-content" className="main-content" role="main" aria-label={page} tabIndex={-1}>
           <div style={{ display: page === 'adesioni' ? 'contents' : 'none' }}>
             <Adesioni session={session} />
+          </div>
+          <div style={{ display: page === 'record' ? 'contents' : 'none' }}>
+            <Record visible={page === 'record'} />
           </div>
           <div style={{ display: page === 'configurazioni' ? 'contents' : 'none' }}>
             <Configurazioni
