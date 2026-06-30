@@ -11,7 +11,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "test": "node --test --no-warnings test/",
+    "test": "node --test --no-warnings \"test/**/*.test.mjs\"",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

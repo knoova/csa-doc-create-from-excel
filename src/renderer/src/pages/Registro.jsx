@@ -5,6 +5,8 @@ function actionLabel(t, a) {
   if (a === 'both') return t('registro.actionBoth')
   if (a === 'docx') return t('registro.actionDocx')
   if (a === 'xlsx') return t('registro.actionXlsx')
+  if (a === 'save') return t('registro.actionSave')
+  if (a === 'export') return t('registro.actionExport')
   return a
 }
 

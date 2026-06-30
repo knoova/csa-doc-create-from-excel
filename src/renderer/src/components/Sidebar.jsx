@@ -27,6 +27,14 @@ const IconActivity = () => (
   </svg>
 )
 
+const IconArchive = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="21 8 21 21 3 21 3 8" />
+    <rect x="1" y="3" width="22" height="5" />
+    <line x1="10" y1="12" x2="14" y2="12" />
+  </svg>
+)
+
 const IconUser = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -60,6 +68,7 @@ const IconLogout = () => (
 
 const navItems = [
   { id: 'adesioni',       icon: <IconDoc />,      labelKey: 'nav.adesioni' },
+  { id: 'record',         icon: <IconArchive />,  labelKey: 'nav.record' },
   { id: 'configurazioni', icon: <IconSettings />, labelKey: 'nav.configurazioni' },
   { id: 'registro',       icon: <IconActivity />, labelKey: 'nav.registro' },
   { id: 'contacts',       icon: <IconUser />,     labelKey: 'nav.contacts' }

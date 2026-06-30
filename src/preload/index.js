@@ -14,11 +14,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFlussoDialog: () => ipcRenderer.invoke('flusso:openDialog'),
   loadFlusso: (filePath) => ipcRenderer.invoke('flusso:load', filePath),
 
-  // ─── Generazione output ──────────────────────────────────────────────────--
+  // ─── Cartella di output ──────────────────────────────────────────────────--
   chooseOutputDir: () => ipcRenderer.invoke('output:chooseDir'),
-  generateOutputs: (record, outputDir, sourceHeaders) =>
-    ipcRenderer.invoke('output:generate', { record, outputDir, sourceHeaders }),
   openPath: (p) => ipcRenderer.invoke('shell:openPath', p),
+
+  // ─── Record (store locale) ──────────────────────────────────────────────--
+  saveRecord: (record, outputDir) => ipcRenderer.invoke('records:save', { record, outputDir }),
+  listRecords: () => ipcRenderer.invoke('records:list'),
+  updateRecord: (id, record) => ipcRenderer.invoke('records:update', { id, record }),
+  deleteRecord: (id) => ipcRenderer.invoke('records:delete', id),
+  exportRecords: (opts) => ipcRenderer.invoke('records:export', opts),
+
+  // ─── Numerazione progressiva ─────────────────────────────────────────────--
+  getNumbering: () => ipcRenderer.invoke('numbering:get'),
+  setNumbering: (next) => ipcRenderer.invoke('numbering:set', next),
 
   // ─── Settings ────────────────────────────────────────────────────────────--
   getSettings: () => ipcRenderer.invoke('settings:get'),

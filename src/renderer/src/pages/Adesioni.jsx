@@ -41,12 +41,15 @@ export default function Adesioni() {
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState(null)
   const [banner, setBanner] = useState(null)
+  const [numbering, setNumbering] = useState({ next: '' })
+  const [seedInput, setSeedInput] = useState('')
 
   useEffect(() => {
     window.electronAPI.getSettings().then((s) => {
       setSettings(s)
       if (s.lastOutputDir) setOutputDir(s.lastOutputDir)
     })
+    window.electronAPI.getNumbering().then((n) => { if (n) setNumbering(n) }).catch(() => {})
   }, [])
 
   const fields = settings?.fields || []
@@ -94,15 +97,31 @@ export default function Adesioni() {
     setForm(rec)
   }
 
+  // Crea un record vuoto precompilando l'identificativo con il numero suggerito.
+  const newRecord = () => {
+    const rec = emptyRecord(fields)
+    if (numbering?.next && !rec.identificativo) rec.identificativo = numbering.next
+    return rec
+  }
+
   const startManual = () => {
     setManual(true)
     setSelectedIdx(-1)
     setResult(null)
     setBanner(null)
-    setForm(emptyRecord(fields))
+    setForm(newRecord())
   }
 
-  const clearForm = () => { setResult(null); setForm(emptyRecord(fields)) }
+  const clearForm = () => { setResult(null); setForm(newRecord()) }
+
+  const applySeed = async () => {
+    const val = seedInput.trim()
+    const n = await window.electronAPI.setNumbering(val)
+    setNumbering(n || { next: val })
+    setSeedInput('')
+    // Se siamo su un nuovo record manuale con identificativo vuoto, precompila.
+    setForm((f) => (f && manual && !f.identificativo ? { ...f, identificativo: (n?.next ?? val) } : f))
+  }
 
   const updateField = (id, value) => setForm((f) => ({ ...f, [id]: value }))
   const updateIdd = (domanda, value) => setForm((f) => ({ ...f, idd: { ...(f.idd || {}), [domanda]: value } }))
@@ -112,15 +131,25 @@ export default function Adesioni() {
     if (dir) setOutputDir(dir)
   }
 
-  const generate = async () => {
+  const saveRecord = async () => {
     if (!form) return
     if (hasErrors) { setBanner({ type: 'error', msg: t('adesioni.validationErrors') }); return }
     if (!outputDir) { setBanner({ type: 'error', msg: t('adesioni.missingFolder') }); return }
     setGenerating(true); setBanner(null); setResult(null)
     try {
-      const res = await window.electronAPI.generateOutputs(form, outputDir, flusso?.headers)
-      if (res?.ok) setResult(res)
-      else setBanner({ type: 'error', msg: res?.error || t('adesioni.validationErrors') })
+      const res = await window.electronAPI.saveRecord(form, outputDir)
+      if (res?.ok) {
+        if (res.numbering) setNumbering(res.numbering)
+        setResult(res)
+        // Pronto per il prossimo inserimento: nuovo record col numero suggerito.
+        if (manual) {
+          const rec = emptyRecord(fields)
+          if (res.numbering?.next) rec.identificativo = res.numbering.next
+          setForm(rec)
+        }
+      } else {
+        setBanner({ type: 'error', msg: res?.error || t('adesioni.validationErrors') })
+      }
     } catch (e) {
       setBanner({ type: 'error', msg: String(e?.message || e) })
     } finally {
@@ -182,6 +211,27 @@ export default function Adesioni() {
         <div className="adesioni-layout">
           {/* ─── Pannello flusso ─── */}
           <div className="flusso-panel">
+            {/* Numerazione progressiva dell'identificativo */}
+            <div className="card card-section" style={{ marginBottom: 0 }}>
+              <div className="section-title">{t('adesioni.numbering')}</div>
+              <p className="section-desc" style={{ margin: '0 0 8px' }}>
+                {numbering?.next
+                  ? <>{t('adesioni.numberingNext')}: <strong className="mono-sm">{numbering.next}</strong></>
+                  : t('adesioni.numberingNone')}
+              </p>
+              <div className="flex gap-2 items-center">
+                <input
+                  className="form-input"
+                  placeholder={t('adesioni.numberingSeedPlaceholder')}
+                  value={seedInput}
+                  onChange={(e) => setSeedInput(e.target.value)}
+                />
+                <button className="btn btn-secondary" onClick={applySeed} disabled={!seedInput.trim()}>
+                  {t('adesioni.numberingSet')}
+                </button>
+              </div>
+            </div>
+            <div className="sep" style={{ margin: '6px 0' }} />
             <button className={`btn btn-primary${manual ? '' : ''}`} onClick={startManual}>{t('adesioni.newManual')}</button>
             <p className="section-desc" style={{ margin: '-4px 0 0' }}>{t('adesioni.newManualHint')}</p>
             {manual && <div className="status-row"><span className="status-dot connected" /> {t('adesioni.manualTitle')}</div>}
@@ -234,8 +284,8 @@ export default function Adesioni() {
                 {banner && <div className={`alert alert-${banner.type}`}>{banner.msg}</div>}
                 {result && (
                   <div className="alert alert-success" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <strong>{t('adesioni.successTitle')}</strong>
-                    <span>{t('adesioni.successBody')}</span>
+                    <strong>{t('adesioni.savedTitle')}</strong>
+                    <span>{t('adesioni.savedBody')}</span>
                     <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={() => window.electronAPI.openPath(result.dir)}>
                       {t('adesioni.openFolder')}
                     </button>
@@ -280,8 +330,8 @@ export default function Adesioni() {
                       {outputDir && <span className="folder-path" title={outputDir}>{outputDir}</span>}
                     </div>
                     {manual && <button className="btn btn-ghost" onClick={clearForm}>{t('adesioni.clear')}</button>}
-                    <button className="btn btn-primary" onClick={generate} disabled={generating || hasErrors}>
-                      {generating ? (<><span className="spinner spinner-sm" /> {t('adesioni.generating')}</>) : t('adesioni.generate')}
+                    <button className="btn btn-primary" onClick={saveRecord} disabled={generating || hasErrors}>
+                      {generating ? (<><span className="spinner spinner-sm" /> {t('adesioni.saving')}</>) : t('adesioni.save')}
                     </button>
                   </div>
                   {hasErrors && <p className="field-error-text" style={{ marginTop: 8 }}>{t('adesioni.validationErrors')}</p>}

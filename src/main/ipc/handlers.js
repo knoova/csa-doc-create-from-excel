@@ -5,10 +5,14 @@ import { domainAllowed, createToken, getSession, clearSession } from '../service
 import { sendMagicLink } from '../services/mailService.js'
 import { loadFlusso } from '../services/flussoService.js'
 import { fillModulo } from '../services/docxService.js'
-import { writeOneRow } from '../services/xlsxFlussoWriter.js'
+import { writeRows } from '../services/xlsxFlussoWriter.js'
 import { logAction, listAudit, exportAuditCsv } from '../services/auditLogger.js'
 import { checkForUpdate } from '../services/updateService.js'
 import { validateRecord } from '../services/recordMapper.js'
+import {
+  listRecords, addRecord, updateRecord, deleteRecord, archiveRecords,
+  getNumbering, setNumbering, advanceNumbering
+} from '../services/recordsStore.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -25,6 +29,15 @@ function aaaammgg(dateStr) {
   if (m) return `${m[3]}${m[2]}${m[1]}`
   const d = new Date()
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+}
+
+function recInfoOf(record) {
+  return {
+    identificativo: record?.identificativo || '',
+    cf: record?.codice_fiscale || '',
+    targa: record?.targa || '',
+    movimento: record?.tipo_movimento || ''
+  }
 }
 
 export function registerHandlers(ipcMain, getMainWindow) {
@@ -80,16 +93,12 @@ export function registerHandlers(ipcMain, getMainWindow) {
     return dir
   })
 
-  ipcMain.handle('output:generate', async (_e, { record, outputDir, sourceHeaders }) => {
+  // ─── Record: salvataggio locale + generazione modulo .docx ─────────────────--
+  ipcMain.handle('records:save', async (_e, { record, outputDir }) => {
     const session = getSession()
     const user = session?.email || 'sconosciuto'
     const settings = getSettings()
-    const recInfo = {
-      identificativo: record?.identificativo || '',
-      cf: record?.codice_fiscale || '',
-      targa: record?.targa || '',
-      movimento: record?.tipo_movimento || ''
-    }
+    const recInfo = recInfoOf(record)
 
     const { valid, errors } = validateRecord(record || {}, settings.fields)
     if (!valid) return { ok: false, reason: 'validation', errors }
@@ -97,19 +106,80 @@ export function registerHandlers(ipcMain, getMainWindow) {
 
     const base = sanitize(`${record.cognome || ''}_${record.targa || ''}`)
     const docxPath = join(outputDir, `Adesione_${base}.docx`)
-    const xlsxPath = join(outputDir, `191025_${aaaammgg(record.data_rendicontazione)}_${base}.xlsx`)
 
     try {
       fillModulo(record, docxPath)
-      await writeOneRow(record, xlsxPath, Array.isArray(sourceHeaders) && sourceHeaders.length ? sourceHeaders : undefined)
-      logAction({ user, action: 'both', record: recInfo, files: [docxPath, xlsxPath], result: 'ok' })
-      return { ok: true, files: { docx: docxPath, xlsx: xlsxPath }, dir: outputDir }
+      const saved = addRecord(record, user)
+      // Avanza la numerazione solo se l'identificativo coincide col suggerito.
+      const numbering = advanceNumbering(record?.identificativo || '')
+      logAction({ user, action: 'save', record: recInfo, files: [docxPath], result: 'ok' })
+      return { ok: true, record: saved, files: { docx: docxPath }, dir: outputDir, numbering }
     } catch (err) {
       const msg = String(err && err.message || err)
-      logAction({ user, action: 'both', record: recInfo, files: [], result: 'error', error: msg })
+      logAction({ user, action: 'save', record: recInfo, files: [], result: 'error', error: msg })
       return { ok: false, reason: 'generate', error: msg }
     }
   })
+
+  ipcMain.handle('records:list', () => listRecords())
+
+  ipcMain.handle('records:update', (_e, { id, record }) => {
+    const settings = getSettings()
+    const { valid, errors } = validateRecord(record || {}, settings.fields)
+    if (!valid) return { ok: false, reason: 'validation', errors }
+    const rec = updateRecord(id, record)
+    return rec ? { ok: true, record: rec } : { ok: false, reason: 'notfound' }
+  })
+
+  ipcMain.handle('records:delete', (_e, id) => {
+    return { ok: deleteRecord(id) }
+  })
+
+  // Esporta un unico XLS dei record indicati (default: tutti i 'pending'); poi
+  // li archivia. Se archive=false, esporta senza cambiare stato (ri-esportazione).
+  ipcMain.handle('records:export', async (_e, opts = {}) => {
+    const { ids = null, archive = true } = opts
+    const session = getSession()
+    const user = session?.email || 'sconosciuto'
+    const { records } = listRecords()
+
+    let selected
+    if (Array.isArray(ids) && ids.length) {
+      const set = new Set(ids)
+      selected = records.filter((r) => set.has(r.id))
+    } else {
+      selected = records.filter((r) => r.status === 'pending')
+    }
+    if (!selected.length) return { ok: false, reason: 'empty' }
+
+    const win = getMainWindow()
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Esporta tracciato XLS',
+      defaultPath: `191025_${aaaammgg()}.xlsx`,
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+    })
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' }
+
+    try {
+      await writeRows(selected, res.filePath)
+      const batchId = `exp_${Date.now()}`
+      if (archive) archiveRecords(selected.map((r) => r.id), batchId)
+      logAction({
+        user, action: 'export',
+        record: { count: selected.length, batch: batchId },
+        files: [res.filePath], result: 'ok'
+      })
+      return { ok: true, file: res.filePath, count: selected.length, archived: !!archive }
+    } catch (err) {
+      const msg = String(err && err.message || err)
+      logAction({ user, action: 'export', record: null, files: [], result: 'error', error: msg })
+      return { ok: false, reason: 'export', error: msg }
+    }
+  })
+
+  // ─── Numerazione progressiva ───────────────────────────────────────────────
+  ipcMain.handle('numbering:get', () => getNumbering())
+  ipcMain.handle('numbering:set', (_e, next) => setNumbering(next))
 
   ipcMain.handle('shell:openPath', async (_e, p) => { try { await shell.openPath(p); return true } catch { return false } })
 
