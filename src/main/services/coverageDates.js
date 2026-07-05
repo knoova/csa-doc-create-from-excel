@@ -50,9 +50,28 @@ export function toTrackDate(value) {
   return d ? formatDateIT(d) : (value == null ? '' : String(value))
 }
 
-/** Data REALE per il MODULO: data del flusso + offset giorni. */
-export function toModuloDate(value, offsetDays = 1) {
+/**
+ * Data per il MODULO: data del flusso + offset giorni. Con offset 0 (default)
+ * la data stampata coincide con quella del tracciato; impostare 1 solo se si
+ * vuole stampare la decorrenza reale (semantica "dalle ore 24:00").
+ */
+export function toModuloDate(value, offsetDays = 0) {
   const d = toDate(value)
   if (!d) return value == null ? '' : String(value)
   return formatDateIT(addDays(d, offsetDays))
+}
+
+/**
+ * Sposta una data GG/MM/AAAA di N anni (rinnovo). Il 29/02 su anno non
+ * bisestile diventa 28/02. Valori non riconosciuti restano invariati.
+ */
+export function addYearsIT(value, years = 1) {
+  const d = toDate(value)
+  if (!d) return value == null ? '' : String(value)
+  const y = d.getUTCFullYear() + years
+  const m = d.getUTCMonth()
+  const day = d.getUTCDate()
+  let out = new Date(Date.UTC(y, m, day))
+  if (out.getUTCMonth() !== m) out = new Date(Date.UTC(y, m + 1, 0)) // 29/02 → 28/02
+  return formatDateIT(out)
 }

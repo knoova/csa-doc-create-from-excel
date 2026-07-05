@@ -29,7 +29,7 @@ function validate(form, fields) {
   return errors
 }
 
-export default function Adesioni() {
+export default function Adesioni({ visible = true }) {
   const { t } = useTranslation()
   const [settings, setSettings] = useState(null)
   const [flusso, setFlusso] = useState(null)
@@ -51,6 +51,20 @@ export default function Adesioni() {
     })
     window.electronAPI.getNumbering().then((n) => { if (n) setNumbering(n) }).catch(() => {})
   }, [])
+
+  // Configurazioni aggiornate in tempo reale (campi/prezzi/IDD) senza toccare
+  // il form in compilazione; al ritorno sulla pagina si ricarica la numerazione.
+  useEffect(() => {
+    const onChanged = (e) => { if (e.detail) setSettings(e.detail) }
+    window.addEventListener('settings-changed', onChanged)
+    return () => window.removeEventListener('settings-changed', onChanged)
+  }, [])
+
+  useEffect(() => {
+    if (!visible) return
+    window.electronAPI.getSettings().then(setSettings).catch(() => {})
+    window.electronAPI.getNumbering().then((n) => { if (n) setNumbering(n) }).catch(() => {})
+  }, [visible])
 
   const fields = settings?.fields || []
   const idd = settings?.idd || []

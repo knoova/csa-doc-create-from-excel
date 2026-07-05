@@ -24,6 +24,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateRecord: (id, record) => ipcRenderer.invoke('records:update', { id, record }),
   deleteRecord: (id) => ipcRenderer.invoke('records:delete', id),
   exportRecords: (opts) => ipcRenderer.invoke('records:export', opts),
+  renewRecords: (ids, years = 1) => ipcRenderer.invoke('records:renew', { ids, years }),
+
+  // ─── FTP (staging / prod) ──────────────────────────────────────────────--
+  ftpTest: (env) => ipcRenderer.invoke('ftp:test', env),
+  ftpUpload: (env, filePath) => ipcRenderer.invoke('ftp:upload', { env, filePath }),
 
   // ─── Numerazione progressiva ─────────────────────────────────────────────--
   getNumbering: () => ipcRenderer.invoke('numbering:get'),
@@ -33,6 +38,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   resetFieldDefaults: () => ipcRenderer.invoke('settings:resetFields'),
+  onSettingsChanged: (callback) => {
+    ipcRenderer.on('settings:changed', (_e, settings) => callback(settings))
+  },
+  removeSettingsChangedListeners: () => ipcRenderer.removeAllListeners('settings:changed'),
+
+  // ─── Preset di configurazione ──────────────────────────────────────────--
+  listPresets: () => ipcRenderer.invoke('presets:list'),
+  savePreset: (name) => ipcRenderer.invoke('presets:save', name),
+  applyPreset: (name) => ipcRenderer.invoke('presets:apply', name),
+  deletePreset: (name) => ipcRenderer.invoke('presets:delete', name),
+  exportPreset: (name) => ipcRenderer.invoke('presets:export', name),
+  importPreset: () => ipcRenderer.invoke('presets:import'),
 
   // ─── Registro attività ──────────────────────────────────────────────────--
   listAudit: () => ipcRenderer.invoke('audit:list'),
