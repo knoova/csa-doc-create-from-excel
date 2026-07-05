@@ -11,8 +11,14 @@ import { checkForUpdate } from '../services/updateService.js'
 import { validateRecord } from '../services/recordMapper.js'
 import {
   listRecords, addRecord, updateRecord, deleteRecord, archiveRecords,
-  getNumbering, setNumbering, advanceNumbering
+  renewRecords, getNumbering, setNumbering, advanceNumbering
 } from '../services/recordsStore.js'
+import { appendRowsToFile } from '../services/xlsxAppend.js'
+import { testConnection, uploadFile } from '../services/ftpService.js'
+import {
+  listPresets, saveCurrentAsPreset, applyPreset, deletePreset, getPreset, importPreset
+} from '../services/configPresets.js'
+import { readFileSync, writeFileSync } from 'fs'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -137,8 +143,9 @@ export function registerHandlers(ipcMain, getMainWindow) {
 
   // Esporta un unico XLS dei record indicati (default: tutti i 'pending'); poi
   // li archivia. Se archive=false, esporta senza cambiare stato (ri-esportazione).
+  // Con append=true i record vengono aggiunti in fondo a un XLS esistente.
   ipcMain.handle('records:export', async (_e, opts = {}) => {
-    const { ids = null, archive = true } = opts
+    const { ids = null, archive = true, append = false } = opts
     const session = getSession()
     const user = session?.email || 'sconosciuto'
     const { records } = listRecords()
@@ -153,27 +160,98 @@ export function registerHandlers(ipcMain, getMainWindow) {
     if (!selected.length) return { ok: false, reason: 'empty' }
 
     const win = getMainWindow()
-    const res = await dialog.showSaveDialog(win, {
-      title: 'Esporta tracciato XLS',
-      defaultPath: `191025_${aaaammgg()}.xlsx`,
-      filters: [{ name: 'Excel', extensions: ['xlsx'] }]
-    })
-    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' }
+    let filePath
+    if (append) {
+      const res = await dialog.showOpenDialog(win, {
+        title: 'Scegli l’XLS esistente a cui aggiungere i record',
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+        properties: ['openFile']
+      })
+      if (res.canceled || !res.filePaths[0]) return { ok: false, reason: 'canceled' }
+      filePath = res.filePaths[0]
+    } else {
+      const res = await dialog.showSaveDialog(win, {
+        title: 'Esporta tracciato XLS',
+        defaultPath: `191025_${aaaammgg()}.xlsx`,
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+      })
+      if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' }
+      filePath = res.filePath
+    }
 
     try {
-      await writeRows(selected, res.filePath)
+      if (append) {
+        const settings = getSettings()
+        await appendRowsToFile(selected, filePath, settings.fields, settings.idd)
+      } else {
+        await writeRows(selected, filePath)
+      }
       const batchId = `exp_${Date.now()}`
       if (archive) archiveRecords(selected.map((r) => r.id), batchId)
       logAction({
-        user, action: 'export',
+        user, action: append ? 'export-append' : 'export',
         record: { count: selected.length, batch: batchId },
-        files: [res.filePath], result: 'ok'
+        files: [filePath], result: 'ok'
       })
-      return { ok: true, file: res.filePath, count: selected.length, archived: !!archive }
+      return { ok: true, file: filePath, count: selected.length, archived: !!archive, appended: !!append }
     } catch (err) {
       const msg = String(err && err.message || err)
-      logAction({ user, action: 'export', record: null, files: [], result: 'error', error: msg })
+      logAction({ user, action: append ? 'export-append' : 'export', record: null, files: [], result: 'error', error: msg })
       return { ok: false, reason: 'export', error: msg }
+    }
+  })
+
+  // Rinnovo: sposta le date di copertura di N anni e riporta i record a 'pending'.
+  ipcMain.handle('records:renew', (_e, opts = {}) => {
+    const { ids = [], years = 1 } = opts
+    if (!Array.isArray(ids) || !ids.length) return { ok: false, reason: 'empty' }
+    const session = getSession()
+    const user = session?.email || 'sconosciuto'
+    try {
+      const renewed = renewRecords(ids, years)
+      logAction({
+        user, action: 'renew',
+        record: { count: renewed.length, years, ids: renewed.map((r) => r.id) },
+        files: [], result: 'ok'
+      })
+      return { ok: true, count: renewed.length, records: renewed }
+    } catch (err) {
+      const msg = String(err && err.message || err)
+      logAction({ user, action: 'renew', record: null, files: [], result: 'error', error: msg })
+      return { ok: false, reason: 'renew', error: msg }
+    }
+  })
+
+  // ─── FTP (staging / prod) ────────────────────────────────────────────────--
+  const ftpProfile = (env) => {
+    const s = getSettings()
+    return (s.ftp || {})[env === 'prod' ? 'prod' : 'staging']
+  }
+
+  ipcMain.handle('ftp:test', async (_e, env) => {
+    try {
+      const res = await testConnection(ftpProfile(env))
+      return { ok: true, dir: res.dir }
+    } catch (err) {
+      return { ok: false, error: String(err && err.message || err) }
+    }
+  })
+
+  ipcMain.handle('ftp:upload', async (_e, { env, filePath }) => {
+    const session = getSession()
+    const user = session?.email || 'sconosciuto'
+    try {
+      const res = await uploadFile(ftpProfile(env), filePath)
+      logAction({
+        user, action: 'ftp-upload',
+        record: { env, remote: res.remotePath },
+        files: [filePath], result: 'ok'
+      })
+      return { ok: true, remotePath: res.remotePath }
+    } catch (err) {
+      const msg = String(err && err.message || err)
+      logAction({ user, action: 'ftp-upload', record: { env }, files: [filePath], result: 'error', error: msg })
+      return { ok: false, error: msg }
     }
   })
 
@@ -184,9 +262,74 @@ export function registerHandlers(ipcMain, getMainWindow) {
   ipcMain.handle('shell:openPath', async (_e, p) => { try { await shell.openPath(p); return true } catch { return false } })
 
   // ─── Settings ────────────────────────────────────────────────────────────--
+  // Ogni modifica ai settings viene notificata al renderer (settings:changed)
+  // così le maschere aperte si aggiornano in tempo reale.
+  const broadcastSettings = (settings) => {
+    try { getMainWindow()?.webContents.send('settings:changed', settings) } catch (_) {}
+    return settings
+  }
+
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:save', (_e, settings) => saveSettings(settings))
-  ipcMain.handle('settings:resetFields', () => resetFieldDefaults())
+  ipcMain.handle('settings:save', (_e, settings) => broadcastSettings(saveSettings(settings)))
+  ipcMain.handle('settings:resetFields', () => broadcastSettings(resetFieldDefaults()))
+
+  // ─── Preset di configurazione con nome ──────────────────────────────────--
+  ipcMain.handle('presets:list', () => listPresets())
+
+  ipcMain.handle('presets:save', (_e, name) => {
+    try { return { ok: true, ...saveCurrentAsPreset(name) } }
+    catch (err) { return { ok: false, error: String(err && err.message || err) } }
+  })
+
+  ipcMain.handle('presets:apply', (_e, name) => {
+    try {
+      const settings = applyPreset(name)
+      broadcastSettings(settings)
+      return { ok: true, settings, ...listPresets() }
+    } catch (err) {
+      return { ok: false, error: String(err && err.message || err) }
+    }
+  })
+
+  ipcMain.handle('presets:delete', (_e, name) => {
+    try { return { ok: true, ...deletePreset(name) } }
+    catch (err) { return { ok: false, error: String(err && err.message || err) } }
+  })
+
+  ipcMain.handle('presets:export', async (_e, name) => {
+    const preset = getPreset(name)
+    if (!preset) return { ok: false, error: 'Preset non trovato' }
+    const win = getMainWindow()
+    const res = await dialog.showSaveDialog(win, {
+      title: 'Esporta configurazione JSON',
+      defaultPath: `config_${sanitize(name)}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    })
+    if (res.canceled || !res.filePath) return { ok: false, reason: 'canceled' }
+    try {
+      writeFileSync(res.filePath, JSON.stringify(preset, null, 2), 'utf-8')
+      return { ok: true, file: res.filePath }
+    } catch (err) {
+      return { ok: false, error: String(err && err.message || err) }
+    }
+  })
+
+  ipcMain.handle('presets:import', async () => {
+    const win = getMainWindow()
+    const res = await dialog.showOpenDialog(win, {
+      title: 'Importa configurazione JSON',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['openFile']
+    })
+    if (res.canceled || !res.filePaths[0]) return { ok: false, reason: 'canceled' }
+    try {
+      const raw = readFileSync(res.filePaths[0], 'utf-8')
+      const fallbackName = res.filePaths[0].replace(/^.*[/\\]/, '').replace(/\.json$/i, '')
+      return { ok: true, ...importPreset(raw, fallbackName) }
+    } catch (err) {
+      return { ok: false, error: String(err && err.message || err) }
+    }
+  })
 
   // ─── Registro ──────────────────────────────────────────────────────────────
   ipcMain.handle('audit:list', () => listAudit())

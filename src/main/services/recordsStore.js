@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { advanceIfAccepted } from './numbering.js'
+import { addYearsIT } from './coverageDates.js'
 
 function emptyStore() {
   return { seq: 0, numbering: { next: '' }, records: [] }
@@ -70,14 +71,40 @@ export function addRecord(data, user) {
   return rec
 }
 
-/** Aggiorna i dati di un record 'pending'. Ritorna il record o null. */
+/** Aggiorna i dati di un record (anche archiviato). Ritorna il record o null. */
 export function updateRecord(id, data) {
   const s = readStore()
   const rec = s.records.find((r) => r.id === id)
-  if (!rec || rec.status !== 'pending') return null
+  if (!rec) return null
   rec.data = data
+  rec.updatedAt = new Date().toISOString()
   writeStore(s)
   return rec
+}
+
+/**
+ * Rinnova i record indicati: sposta le date di inizio/fine copertura di
+ * `years` anni e riporta lo stato a 'pending' (il rinnovo va ri-esportato).
+ * Ritorna i record aggiornati.
+ */
+export function renewRecords(ids, years = 1) {
+  const s = readStore()
+  const set = new Set(ids)
+  const now = new Date().toISOString()
+  const renewed = []
+  for (const r of s.records) {
+    if (!set.has(r.id)) continue
+    const data = r.data || {}
+    if (data.data_inizio) data.data_inizio = addYearsIT(data.data_inizio, years)
+    if (data.data_fine) data.data_fine = addYearsIT(data.data_fine, years)
+    r.data = data
+    r.status = 'pending'
+    r.renewedAt = now
+    r.updatedAt = now
+    renewed.push(r)
+  }
+  if (renewed.length) writeStore(s)
+  return renewed
 }
 
 /** Elimina un record 'pending'. Ritorna true se rimosso. */

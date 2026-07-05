@@ -9,9 +9,17 @@ import { app } from 'electron'
 import { DEFAULT_FIELDS, DEFAULT_IDD, DEFAULT_PREZZI } from './tracciato.js'
 import { getEnvConfig } from './envConfig.js'
 
+// Versione dello schema settings: usata per le migrazioni dei file già salvati.
+const SETTINGS_VERSION = 2
+
+function emptyFtpProfile() {
+  return { host: '', port: 21, user: '', pass: '', secure: false, dir: '' }
+}
+
 function buildDefaults() {
   const env = getEnvConfig()
   return {
+    settingsVersion: SETTINGS_VERSION,
     theme: 'dark',
     language: 'it',
     accentColor: '',
@@ -19,12 +27,15 @@ function buildDefaults() {
     fields: JSON.parse(JSON.stringify(DEFAULT_FIELDS)),
     idd: JSON.parse(JSON.stringify(DEFAULT_IDD)),
     prezzi: JSON.parse(JSON.stringify(DEFAULT_PREZZI)),
-    // Date: scostamento per le date "reali" nel modulo (copertura dalle 24:00)
-    dateOffsetDays: 1,
+    // Date: le date del modulo riportano la data del flusso così com'è.
+    // Impostare 1 solo se si vuole stampare la decorrenza reale (24:00 → +1).
+    dateOffsetDays: 0,
     // Accesso
     acceptedDomains: env.acceptedDomains,
     sessionHours: 24,
     smtp: { ...env.smtp },
+    // FTP di pubblicazione (staging e produzione)
+    ftp: { staging: emptyFtpProfile(), prod: emptyFtpProfile() },
     // Ultima cartella di output usata
     lastOutputDir: ''
   }
@@ -46,8 +57,18 @@ export function getSettings() {
     if (!Array.isArray(merged.idd) || merged.idd.length === 0) merged.idd = defaults.idd
     if (!merged.prezzi || Object.keys(merged.prezzi).length === 0) merged.prezzi = defaults.prezzi
     merged.smtp = { ...defaults.smtp, ...(saved.smtp || {}) }
+    merged.ftp = {
+      staging: { ...emptyFtpProfile(), ...((saved.ftp || {}).staging || {}) },
+      prod: { ...emptyFtpProfile(), ...((saved.ftp || {}).prod || {}) }
+    }
     if (!Array.isArray(merged.acceptedDomains) || merged.acceptedDomains.length === 0) {
       merged.acceptedDomains = defaults.acceptedDomains
+    }
+    // Migrazione v1 → v2: il vecchio default stampava nel modulo la data +1
+    // (semantica "24:00"); ora le date vanno mostrate così come sono.
+    if (!saved.settingsVersion || saved.settingsVersion < 2) {
+      merged.dateOffsetDays = 0
+      merged.settingsVersion = SETTINGS_VERSION
     }
     return merged
   } catch {

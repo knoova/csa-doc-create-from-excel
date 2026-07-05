@@ -1280,6 +1280,7 @@ a.contact-info:hover { opacity: 0.8; }
 .badge-info     { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
 .badge-success  { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
 .badge-error    { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+.badge-warning  { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
 
 .batch-file-list {
   display: flex;
@@ -1584,3 +1585,46 @@ a.contact-info:hover { opacity: 0.8; }
 .log-table tr:last-child td { border-bottom: none; }
 .log-table tbody tr:hover td { background: var(--c-bg-hover); }
 .mono-sm { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* ─── Sezioni collassabili (Configurazioni) ─────────────────── */
+.collapse-header {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--c-text-primary); font: inherit; text-align: left;
+}
+.collapse-header:hover .section-title { color: var(--c-accent); }
+.field-summary { flex-wrap: wrap; row-gap: 4px; font-size: 13px; }
+.field-summary strong { font-size: 13px; }
+
+/* ─── Preset di configurazione ──────────────────────────────── */
+.preset-list { display: flex; flex-direction: column; gap: 8px; }
+.preset-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--c-border); border-radius: var(--r-md);
+  background: var(--c-bg-card-alt); flex-wrap: wrap;
+}
+.preset-name { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ─── FTP staging / produzione ──────────────────────────────── */
+.ftp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.ftp-profile { border: 1px solid var(--c-border); border-radius: var(--r-md); padding: 14px; background: var(--c-bg-card-alt); }
+
+/* ─── Barra salvataggio configurazioni ──────────────────────── */
+.config-savebar {
+  position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center;
+  padding: 12px 0 20px; background: linear-gradient(transparent, var(--c-bg-app) 30%);
+  margin-bottom: 4px;
+}
+
+/* ─── Dettaglio record ──────────────────────────────────────── */
+.record-meta {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px;
+  font-size: 12.5px; color: var(--c-text-secondary);
+}
+.row-clickable { cursor: pointer; }
+
+/* ─── Scadenze ──────────────────────────────────────────────── */
+.scadenze-group { border-left: 3px solid var(--c-border); }
+.scadenze-error   { border-left-color: #ef4444; }
+.scadenze-warning { border-left-color: #f59e0b; }
+.scadenze-info    { border-left-color: #3b82f6; }

@@ -5,6 +5,7 @@ import TitleBar from './components/TitleBar.jsx'
 import Login from './pages/Login.jsx'
 import Adesioni from './pages/Adesioni.jsx'
 import Record from './pages/Record.jsx'
+import Scadenze from './pages/Scadenze.jsx'
 import Configurazioni from './pages/Configurazioni.jsx'
 import Registro from './pages/Registro.jsx'
 import Contacts from './pages/Contacts.jsx'
@@ -65,6 +66,19 @@ export default function App() {
     return () => window.electronAPI?.removeAuthListeners?.()
   }, [])
 
+  // Ponte unico per l'aggiornamento in tempo reale delle configurazioni: il
+  // main emette settings:changed a ogni salvataggio; qui lo si rilancia come
+  // evento window così ogni pagina può ascoltarlo senza contendersi l'IPC.
+  useEffect(() => {
+    window.electronAPI?.onSettingsChanged?.((settings) => {
+      window.dispatchEvent(new CustomEvent('settings-changed', { detail: settings }))
+      if (settings?.theme) setTheme(settings.theme)
+      if (settings?.language) i18n.changeLanguage(settings.language)
+      applyAccentColor(settings?.accentColor)
+    })
+    return () => window.electronAPI?.removeSettingsChangedListeners?.()
+  }, [])
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
@@ -116,13 +130,17 @@ export default function App() {
         />
         <main id="main-content" className="main-content" role="main" aria-label={page} tabIndex={-1}>
           <div style={{ display: page === 'adesioni' ? 'contents' : 'none' }}>
-            <Adesioni session={session} />
+            <Adesioni session={session} visible={page === 'adesioni'} />
           </div>
           <div style={{ display: page === 'record' ? 'contents' : 'none' }}>
             <Record visible={page === 'record'} />
           </div>
+          <div style={{ display: page === 'scadenze' ? 'contents' : 'none' }}>
+            <Scadenze visible={page === 'scadenze'} />
+          </div>
           <div style={{ display: page === 'configurazioni' ? 'contents' : 'none' }}>
             <Configurazioni
+              visible={page === 'configurazioni'}
               onThemeChange={handleThemeChange}
               onLangChange={handleLangChange}
               onAccentChange={handleAccentChange}

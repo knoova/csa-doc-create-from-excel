@@ -7,6 +7,9 @@ function actionLabel(t, a) {
   if (a === 'xlsx') return t('registro.actionXlsx')
   if (a === 'save') return t('registro.actionSave')
   if (a === 'export') return t('registro.actionExport')
+  if (a === 'export-append') return t('registro.actionExportAppend')
+  if (a === 'renew') return t('registro.actionRenew')
+  if (a === 'ftp-upload') return t('registro.actionFtpUpload')
   return a
 }
 

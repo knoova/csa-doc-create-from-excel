@@ -29,7 +29,7 @@ export function buildTrackRow(record, fields, idd, headers = TRACCIATO_HEADERS) 
 }
 
 /** Costruisce l'oggetto dati per i segnaposto del modulo .docx. */
-export function buildDocxData(record, fields, prezzi, offsetDays = 1) {
+export function buildDocxData(record, fields, prezzi, offsetDays = 0) {
   const data = {}
   for (const f of fields) {
     if (!f.docx) continue
