@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   patchSettings: (partial) => ipcRenderer.invoke('settings:patch', partial),
   resetFieldDefaults: () => ipcRenderer.invoke('settings:resetFields'),
+
+  // ─── Allegati (PDF accodati al modulo) ─────────────────────────────────────--
+  addAttachment: () => ipcRenderer.invoke('attachments:add'),
+  deleteAttachmentFile: (id) => ipcRenderer.invoke('attachments:deleteFile', id),
   onSettingsChanged: (callback) => {
     ipcRenderer.on('settings:changed', (_e, settings) => callback(settings))
   },

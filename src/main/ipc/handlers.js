@@ -20,6 +20,7 @@ import { testConnection, uploadFile } from '../services/ftpService.js'
 import {
   listPresets, saveCurrentAsPreset, applyPreset, deletePreset, getPresetForExport, importPreset
 } from '../services/configPresets.js'
+import { importAttachmentFile, deleteAttachmentFile } from '../services/attachmentsStore.js'
 import { readFileSync, writeFileSync, statSync } from 'fs'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -302,6 +303,28 @@ export function registerHandlers(ipcMain, getMainWindow) {
   // (es. la maschera Configurazioni aperta con edit in corso).
   ipcMain.handle('settings:patch', (_e, partial) => broadcastSettings(patchSettings(partial || {})))
   ipcMain.handle('settings:resetFields', () => broadcastSettings(resetFieldDefaults()))
+
+  // ─── Allegati (PDF accodati al modulo) ─────────────────────────────────────--
+  // Copia un PDF scelto dall'utente nella cartella allegati e ritorna la voce
+  // { id, name } da aggiungere alla lista in-memory (il salvataggio avviene con
+  // il normale "Salva" della maschera, così non sovrascrive altre modifiche).
+  ipcMain.handle('attachments:add', async () => {
+    const win = getMainWindow()
+    const res = await dialog.showOpenDialog(win, {
+      title: 'Seleziona un allegato PDF',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      properties: ['openFile']
+    })
+    if (res.canceled || !res.filePaths[0]) return { ok: false, reason: 'canceled' }
+    try {
+      return { ok: true, entry: importAttachmentFile(res.filePaths[0]) }
+    } catch (err) {
+      return { ok: false, error: String(err && err.message || err) }
+    }
+  })
+
+  // Elimina il file fisico di un allegato caricato (i builtin sono ignorati).
+  ipcMain.handle('attachments:deleteFile', (_e, id) => { deleteAttachmentFile(id); return { ok: true } })
 
   // ─── Preset di configurazione con nome ──────────────────────────────────--
   ipcMain.handle('presets:list', () => listPresets())

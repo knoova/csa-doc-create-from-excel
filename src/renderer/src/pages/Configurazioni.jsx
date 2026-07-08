@@ -49,6 +49,7 @@ const CONFIG_TABS = [
   { key: 'preset', labelKey: 'config.sectionPresets' },
   { key: 'fields', labelKey: 'config.sectionFields' },
   { key: 'prezzi', labelKey: 'config.sectionPrezzi' },
+  { key: 'allegati', labelKey: 'config.sectionAllegati' },
   { key: 'date', labelKey: 'config.sectionDate' },
   { key: 'ftp', labelKey: 'config.sectionFtp' },
   { key: 'access', labelKey: 'config.sectionAccess' },
@@ -282,6 +283,26 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
     setPrezziEntries(entries)
   }
 
+  // ─── Allegati (PDF accodati al modulo, ordinati) ───────────────────────────--
+  const attachments = Array.isArray(s.attachments) ? s.attachments : []
+  const addAttachment = async () => {
+    const res = await window.electronAPI.addAttachment()
+    if (res?.ok && res.entry) patch({ attachments: [...attachments, res.entry] })
+    else if (res && res.reason !== 'canceled') setBanner({ type: 'error', msg: res.error || t('common.error') })
+  }
+  const removeAttachment = (idx) => {
+    const entry = attachments[idx]
+    if (entry && !entry.builtin && entry.id) window.electronAPI.deleteAttachmentFile?.(entry.id)
+    patch({ attachments: attachments.filter((_, i) => i !== idx) })
+  }
+  const moveAttachment = (idx, dir) => {
+    const j = idx + dir
+    if (j < 0 || j >= attachments.length) return
+    const next = attachments.slice()
+    ;[next[idx], next[j]] = [next[j], next[idx]]
+    patch({ attachments: next })
+  }
+
   const save = async () => {
     await window.electronAPI.saveSettings(s)
     setSaved(true)
@@ -476,6 +497,36 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
                       {prezzoFormulaOk(row) ? t('config.prezzoFormulaHint') : t('config.prezzoFormulaInvalid')}
                     </span></div>
                 )}
+              </div>
+            ))}
+          </div>
+          )}
+        </Panel>
+        )}
+
+        {/* ─── Allegati ─── */}
+        {tab === 'allegati' && (
+        <Panel
+          title={t('config.sectionAllegati')}
+          desc={t('config.sectionAllegatiDesc')}
+          actions={<button className="btn btn-secondary" onClick={addAttachment}>{t('config.addAttachment')}</button>}
+        >
+          {attachments.length === 0 ? (
+            <p className="section-desc" style={{ marginTop: 0 }}>{t('config.allegatiEmpty')}</p>
+          ) : (
+          <div className="field-list">
+            {attachments.map((a, idx) => (
+              <div className="field-item" key={a.id || idx} style={{ gridTemplateColumns: 'auto 1fr auto' }}>
+                <span className="badge badge-neutral mono-sm">{idx + 1}</span>
+                <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                  {a.builtin && <span className="badge badge-info">{t('config.allegatoBuiltin')}</span>}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <button className="btn btn-ghost" onClick={() => moveAttachment(idx, -1)} disabled={idx === 0} title={t('config.allegatoUp')}>↑</button>
+                  <button className="btn btn-ghost" onClick={() => moveAttachment(idx, 1)} disabled={idx === attachments.length - 1} title={t('config.allegatoDown')}>↓</button>
+                  <button className="btn-danger" onClick={() => removeAttachment(idx)}>{t('config.deletePrezzo')}</button>
+                </div>
               </div>
             ))}
           </div>

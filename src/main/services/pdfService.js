@@ -22,8 +22,7 @@ import { PDFDocument } from 'pdf-lib'
 import { buildDocxData } from './recordMapper.js'
 import { getSettings } from './settingsService.js'
 import { fillAndReflowScript } from './moduloFill.js'
-
-const ATTACHMENT_NAME = 'CSA Convenzione Assistenza Tutela - DIP.pdf'
+import { resolveAttachmentPaths, builtinAttachmentPath, defaultAttachments } from './attachmentsStore.js'
 
 function firstExisting(paths) {
   for (const p of paths) {
@@ -32,15 +31,13 @@ function firstExisting(paths) {
   return null
 }
 
-export function attachmentPath() {
-  const p = firstExisting([
-    join(process.resourcesPath || '', 'templates', ATTACHMENT_NAME),
-    join(app.getAppPath(), 'templates', ATTACHMENT_NAME),
-    join(app.getAppPath(), '..', 'templates', ATTACHMENT_NAME),
-    join(process.cwd(), 'templates', ATTACHMENT_NAME)
-  ])
-  if (!p) throw new Error(`Allegato PDF non trovato (templates/${ATTACHMENT_NAME})`)
-  return p
+/**
+ * Percorsi (ordinati) degli allegati da accodare per una configurazione.
+ * Se la lista non è definita si ricade sull'allegato predefinito (DIP incluso).
+ */
+export function attachmentPathsFor(settings) {
+  const list = Array.isArray(settings?.attachments) ? settings.attachments : defaultAttachments()
+  return resolveAttachmentPaths(list)
 }
 
 /** Cartella del template HTML del modulo (contiene page-1/2.xhtml, css, fonts, images). */
@@ -115,7 +112,9 @@ export async function mergePdfBuffers(inputs) {
 export function buildFallbackZip(docxPath, attachmentPdfPath, outPath) {
   const zip = new PizZip()
   zip.file(basename(docxPath), readFileSync(docxPath))
-  zip.file(basename(attachmentPdfPath), readFileSync(attachmentPdfPath))
+  if (attachmentPdfPath && existsSync(attachmentPdfPath)) {
+    zip.file(basename(attachmentPdfPath), readFileSync(attachmentPdfPath))
+  }
   const buf = zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' })
   writeFileSync(outPath, buf)
   return outPath
@@ -127,17 +126,19 @@ export function buildFallbackZip(docxPath, attachmentPdfPath, outPath) {
  * il .docx e l'allegato, e riporta l'esito nel campo `ok`.
  */
 export async function buildFinalPdf(record, settings, docxPath, outDir, baseName) {
-  const attachment = attachmentPath()
+  const attachments = attachmentPathsFor(settings)
   try {
     const moduloPdf = await renderModuloPdf(record, settings)
-    const finalBytes = await mergePdfBuffers([moduloPdf, attachment])
+    const finalBytes = await mergePdfBuffers([moduloPdf, ...attachments])
     const finalPdf = join(outDir, `${baseName}.pdf`)
     writeFileSync(finalPdf, finalBytes)
     return { ok: true, pdfPath: finalPdf }
   } catch (err) {
     try {
+      // Ripiego: ZIP con il .docx e gli allegati (il primo disponibile o il DIP incluso).
+      const fallbackAttachment = attachments[0] || builtinAttachmentPath()
       const zipPath = join(outDir, `${baseName}.zip`)
-      buildFallbackZip(docxPath, attachment, zipPath)
+      buildFallbackZip(docxPath, fallbackAttachment, zipPath)
       return { ok: false, zipPath, error: String(err && err.message || err) }
     } catch (zipErr) {
       return { ok: false, error: `${String(err && err.message || err)} (fallback ZIP fallito: ${zipErr.message})` }
