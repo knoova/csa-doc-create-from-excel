@@ -128,7 +128,7 @@ export function registerHandlers(ipcMain, getMainWindow) {
       // PDF finale (modulo + allegato uniti). Non deve mai bloccare il
       // salvataggio: se la conversione fallisce si produce uno ZIP di
       // ripiego con docx + allegato, e l'esito viene segnalato a parte.
-      const pdfResult = await buildFinalPdf(docxPath, outputDir, `Adesione_${base}`)
+      const pdfResult = await buildFinalPdf(record, settings, docxPath, outputDir, `Adesione_${base}`)
       const files = { docx: docxPath, pdf: pdfResult.ok ? pdfResult.pdfPath : null, zip: pdfResult.zipPath || null }
       const logFiles = [docxPath, pdfResult.pdfPath, pdfResult.zipPath].filter(Boolean)
 
