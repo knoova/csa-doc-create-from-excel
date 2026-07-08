@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Banner from '../components/Banner.jsx'
+import { premioFor } from '../../../main/services/premioService.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const GROUP_ORDER = ['polizza', 'contraente', 'veicolo', 'copertura', 'contatti']
@@ -76,8 +77,9 @@ export default function Adesioni({ visible = true }) {
 
   const premio = useMemo(() => {
     if (!form) return null
-    const row = prezzi[String(form.codice_configurazione || '').trim()]
-    return row || null
+    const code = String(form.codice_configurazione || '').trim()
+    if (!prezzi[code]) return null
+    return premioFor(code, prezzi, form)
   }, [form, prezzi])
 
   const filteredRecords = useMemo(() => {

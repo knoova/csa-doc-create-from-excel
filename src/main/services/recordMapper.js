@@ -39,7 +39,7 @@ export function buildDocxData(record, fields, prezzi, offsetDays = 0) {
     data[f.docx] = v == null ? '' : String(v)
   }
   data.cognome_nome = [record.cognome, record.nome].filter(Boolean).join(' ').trim()
-  const pr = premioFor(record.codice_configurazione, prezzi)
+  const pr = premioFor(record.codice_configurazione, prezzi, record)
   data.premio = pr.premio || ''
   data.pacchetto = pr.pacchetto || ''
   return data

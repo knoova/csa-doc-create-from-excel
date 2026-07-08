@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Banner from '../components/Banner.jsx'
+import { isValidExpr } from '../../../main/services/expr.js'
 
 const FIELD_TYPES = ['text', 'number', 'date', 'email', 'phone', 'select', 'fixed']
+
+/** Valida la sintassi di una formula premio (le variabili sconosciute valgono 1 in fase di controllo). */
+function prezzoFormulaOk(row) {
+  const f = String(row?.formula || '').trim()
+  if (!f) return true
+  const vars = {}
+  ;(f.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach((id) => { vars[id] = 1 })
+  return isValidExpr(f, vars)
+}
 
 function optionsToText(opts) {
   return (opts || []).map(o => `${o.value}=${o.label}`).join('\n')
@@ -455,6 +465,17 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
                   <input className="field-input-sm" value={row.premio} onChange={(e) => patchPrezzoRow(idx, { premio: e.target.value })} /></div>
                 <div className="field-row" style={{ alignItems: 'end', justifyContent: 'end' }}>
                   <button className="btn-danger" onClick={() => deletePrezzo(idx)}>{t('config.deletePrezzo')}</button></div>
+                <div className="field-row" style={{ gridColumn: '1 / -1', alignItems: 'start' }}>
+                  <span className="field-label-sm">{t('config.prezzoFormula')}</span>
+                  <input className="field-input-sm" value={row.formula || ''} placeholder={t('config.prezzoFormulaPlaceholder')}
+                    onChange={(e) => patchPrezzoRow(idx, { formula: e.target.value })} /></div>
+                {(row.formula || '').trim() && (
+                  <div className="field-row" style={{ gridColumn: '1 / -1' }}>
+                    <span className="field-label-sm" />
+                    <span className="mono-sm" style={{ color: prezzoFormulaOk(row) ? 'var(--c-text-muted)' : 'var(--c-error)' }}>
+                      {prezzoFormulaOk(row) ? t('config.prezzoFormulaHint') : t('config.prezzoFormulaInvalid')}
+                    </span></div>
+                )}
               </div>
             ))}
           </div>
