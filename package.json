@@ -68,6 +68,10 @@
       {
         "from": "templates/modulo_html",
         "to": "templates/modulo_html"
+      },
+      {
+        "from": "assets/csa-logo.png",
+        "to": "assets/csa-logo.png"
       }
     ],
     "win": {

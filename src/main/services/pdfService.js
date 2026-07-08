@@ -15,14 +15,14 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join, basename } from 'path'
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import PizZip from 'pizzip'
 import { PDFDocument } from 'pdf-lib'
 import { buildDocxData } from './recordMapper.js'
 import { getSettings } from './settingsService.js'
 import { fillAndReflowScript } from './moduloFill.js'
 import { resolveAttachmentPaths, builtinAttachmentPath, defaultAttachments } from './attachmentsStore.js'
-import { templateDir, templatePageFiles, bundledTemplateDir } from './templatesStore.js'
+import { templateDir, templatePageFiles, bundledTemplateDir, DEFAULT_TEMPLATE_ID } from './templatesStore.js'
 
 /**
  * Percorsi (ordinati) degli allegati da accodare per una configurazione.
@@ -36,6 +36,18 @@ export function attachmentPathsFor(settings) {
 /** Cartella del template HTML del modulo (predefinito incluso nell'app). */
 export function moduloHtmlDir() {
   return bundledTemplateDir()
+}
+
+/** Logo CSA come data URI (base64) per l'overlay in alto a sinistra, o null se assente. */
+export function logoDataUri() {
+  const p = [
+    join(process.resourcesPath || '', 'assets', 'csa-logo.png'),
+    join(app.getAppPath(), 'assets', 'csa-logo.png'),
+    join(app.getAppPath(), '..', 'assets', 'csa-logo.png'),
+    join(process.cwd(), 'assets', 'csa-logo.png')
+  ].find((c) => { try { return c && existsSync(c) } catch { return false } })
+  if (!p) return null
+  try { return `data:image/png;base64,${readFileSync(p).toString('base64')}` } catch { return null }
 }
 
 // CSS che mappa il sistema di coordinate del template (595×842 "px", che sono
@@ -65,6 +77,12 @@ export async function renderModuloPdf(record, settings) {
   const s = settings || getSettings()
   const data = buildDocxData(record, s.fields, s.prezzi, s.dateOffsetDays)
   const dir = templateDir(s.templateId)
+  // Logo in alto a sinistra: solo sul template predefinito incluso (i template
+  // importati portano già la propria intestazione).
+  if (!s.templateId || s.templateId === DEFAULT_TEMPLATE_ID) {
+    const logo = logoDataUri()
+    if (logo) data.__logoDataUri = logo
+  }
 
   const win = new BrowserWindow({
     show: false,

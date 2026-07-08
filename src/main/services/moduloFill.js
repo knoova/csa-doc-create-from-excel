@@ -40,6 +40,20 @@ function fillAndReflowFn(DATA) {
   // ── 2. Riflusso del blocco dati aderente ──
   var root = document.querySelector('.body > div')
   if (!root) return
+
+  // ── Logo in alto a sinistra (solo se fornito, template predefinito) ──
+  // Overlay assoluto: non sposta nulla del resto del modulo.
+  if (DATA.__logoDataUri && !root.querySelector('.csa-logo')) {
+    var logo = document.createElement('img')
+    logo.className = 'csa-logo'
+    logo.src = DATA.__logoDataUri
+    logo.style.position = 'absolute'
+    logo.style.left = '0'
+    logo.style.top = '0'
+    logo.style.width = '104px'
+    logo.style.height = 'auto'
+    root.appendChild(logo)
+  }
   var CONTENT_W = 566.6           // larghezza utile del contenitore Pages
   var TABLE_TOP = 224.25          // top originale della tabella pacchetti
   var kids = Array.prototype.slice.call(root.children)
@@ -67,6 +81,7 @@ function fillAndReflowFn(DATA) {
   root.insertBefore(wrap, block[0])
   block.forEach(function (el) { wrap.appendChild(el) })
 
+  var BUDGET = 791.8              // altezza del root che sta in un solo foglio A4
   var h = wrap.getBoundingClientRect().height
   var delta = Math.max(0, (blockTop + h) - TABLE_TOP + 4)
   if (delta > 0) {
@@ -75,7 +90,29 @@ function fillAndReflowFn(DATA) {
       var t = topOf(el)
       if (t >= 220) el.style.top = (t + delta) + 'px'
     })
-    var hh = parseFloat(root.style.height || '791.8')
+    var hh = parseFloat(root.style.height || String(BUDGET))
     root.style.height = (hh + delta) + 'px'
+  }
+
+  // ── 3. Rientro in una sola pagina ──
+  // Se il contenuto (misurato sul punto più basso EFFETTIVO, inclusi i blocchi
+  // annidati posizionati in assoluto) supera l'altezza del foglio A4, riduci
+  // APPENA la scala del modulo per farlo stare in un'unica pagina, senza
+  // spostare né riorganizzare il resto (scala uniforme dall'angolo alto-sinistra).
+  // Si usa `zoom` (non `transform: scale`): in Blink lo zoom incide sul LAYOUT,
+  // quindi riduce davvero l'impaginazione a una sola pagina; una scala
+  // trasformata resterebbe solo visiva e Chromium spezzerebbe comunque in due.
+  // L'estensione da contenere è il punto più basso TRA il contenuto reale
+  // (blocchi annidati inclusi) e il box stesso del root (la cui altezza è stata
+  // allungata dal riflusso): è quest'ultimo a spingere spesso su una 2ª pagina.
+  var PAGE_LIMIT = 834           // altezza utile di un A4 nello spazio px del template
+  var nodes = root.getElementsByTagName('*')
+  var extent = root.getBoundingClientRect().bottom
+  for (var i = 0; i < nodes.length; i++) {
+    var b = nodes[i].getBoundingClientRect().bottom
+    if (b > extent) extent = b
+  }
+  if (extent > PAGE_LIMIT) {
+    root.style.zoom = (PAGE_LIMIT / extent).toFixed(4)
   }
 }
