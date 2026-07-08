@@ -1537,6 +1537,15 @@ a.contact-info:hover { opacity: 0.8; }
 .login-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
 .login-note { font-size: 11.5px; color: var(--c-text-muted); margin-top: 18px; line-height: 1.5; }
 .login-form .btn-primary { width: 100%; padding: 11px; }
+.login-form .btn-secondary { width: 100%; padding: 11px; }
+.login-divider {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--c-text-muted); margin: 2px 0;
+}
+.login-divider::before, .login-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--c-border);
+}
 
 /* ─── Adesioni layout ───────────────────────────────────────── */
 .adesioni-layout {

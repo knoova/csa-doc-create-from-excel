@@ -3,6 +3,7 @@ import { join } from 'path'
 import { registerHandlers } from './ipc/handlers.js'
 import { initAudit } from './services/auditLogger.js'
 import { verifyToken, createSession } from './services/authService.js'
+import { isSsoCallback, handleSsoCallback } from './services/ssoAuthService.js'
 
 let mainWindow = null
 const getMainWindow = () => mainWindow
@@ -23,22 +24,33 @@ function registerProtocol() {
   }
 }
 
-// Verifica il magic link e, se valido, crea la sessione e avvisa il renderer.
-function handleDeepLink(url) {
+// Notifica il renderer dell'avvenuta autenticazione e porta la finestra in primo
+// piano. Condiviso dal magic-link locale e dal login SSO.
+function notifyAuthenticated(session) {
+  if (!session || !mainWindow) return
+  mainWindow.webContents.send('auth:authenticated', session)
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
+}
+
+// Instrada un deep link csadoc:// verso il flusso giusto:
+//  - csadoc://auth?token=... → magic link locale (invariato)
+//  - csadoc://sso?code=...&state=... → login SSO con l'identity provider
+async function handleDeepLink(url) {
   if (!url || typeof url !== 'string') return
   try {
+    if (isSsoCallback(url)) {
+      const session = await handleSsoCallback(url)
+      notifyAuthenticated(session)
+      return
+    }
     const u = new URL(url)
     const isAuth = u.host === 'auth' || (u.pathname || '').includes('auth')
     if (!isAuth) return
     const token = u.searchParams.get('token')
     const res = verifyToken(token)
     if (res?.email) {
-      const session = createSession(res.email)
-      if (mainWindow) {
-        mainWindow.webContents.send('auth:authenticated', session)
-        if (mainWindow.isMinimized()) mainWindow.restore()
-        mainWindow.focus()
-      }
+      notifyAuthenticated(createSession(res.email))
     }
   } catch (_) {}
 }

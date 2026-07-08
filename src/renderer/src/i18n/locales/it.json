@@ -30,7 +30,11 @@
     "invalidEmail": "Inserisci un indirizzo email valido.",
     "waitingAuth": "In attesa del click sul link di accesso…",
     "sessionExpired": "Sessione scaduta, effettua di nuovo l'accesso.",
-    "footerNote": "L'accesso è riservato ai domini autorizzati. La sessione dura 24 ore."
+    "footerNote": "L'accesso è riservato ai domini autorizzati. La sessione dura 24 ore.",
+    "or": "oppure",
+    "ssoButton": "Accedi con account condiviso",
+    "ssoWaiting": "In attesa dell'accesso nel browser…",
+    "ssoError": "Impossibile aprire l'accesso condiviso. Riprova."
   },
   "session": {
     "loggedInAs": "Accesso effettuato come",

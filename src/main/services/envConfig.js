@@ -70,7 +70,10 @@ export function getEnvConfig() {
     acceptedDomains: (env.ACCEPTED_DOMAINS || '')
       .split(',')
       .map(s => s.trim().toLowerCase())
-      .filter(Boolean)
+      .filter(Boolean),
+    // Base URL del release-distributor, che fa da identity provider (SSO)
+    // per il login con account condiviso. In sviluppo punta al server locale.
+    ssoBaseUrl: (env.SSO_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
   }
   return cached
 }

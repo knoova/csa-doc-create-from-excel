@@ -30,7 +30,11 @@
     "invalidEmail": "Enter a valid email address.",
     "waitingAuth": "Waiting for the sign-in link to be clicked…",
     "sessionExpired": "Session expired, please sign in again.",
-    "footerNote": "Access is restricted to authorized domains. Sessions last 24 hours."
+    "footerNote": "Access is restricted to authorized domains. Sessions last 24 hours.",
+    "or": "or",
+    "ssoButton": "Sign in with shared account",
+    "ssoWaiting": "Waiting for sign-in in the browser…",
+    "ssoError": "Could not open shared sign-in. Please retry."
   },
   "session": {
     "loggedInAs": "Signed in as",
