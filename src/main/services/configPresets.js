@@ -34,6 +34,30 @@ function writeStore(store) {
   return store
 }
 
+/** Azzera le password (SMTP/FTP) prima di esporre uno snapshot al di fuori dell'app (export JSON). */
+function redactSecrets(settings) {
+  const s = { ...settings }
+  if (s.smtp) s.smtp = { ...s.smtp, pass: '' }
+  if (s.ftp) {
+    s.ftp = {
+      staging: { ...(s.ftp.staging || {}), pass: '' },
+      prod: { ...(s.ftp.prod || {}), pass: '' }
+    }
+  }
+  return s
+}
+
+/** Se la patch in arrivo non porta una password (preset "ripulito"), mantiene quella attualmente configurata. */
+function keepExistingSecrets(incoming, current) {
+  const s = { ...incoming }
+  s.smtp = { ...incoming.smtp, pass: incoming.smtp?.pass || current.smtp?.pass || '' }
+  s.ftp = {
+    staging: { ...incoming.ftp?.staging, pass: incoming.ftp?.staging?.pass || current.ftp?.staging?.pass || '' },
+    prod: { ...incoming.ftp?.prod, pass: incoming.ftp?.prod?.pass || current.ftp?.prod?.pass || '' }
+  }
+  return s
+}
+
 /** Elenco preset (senza i settings completi, per la UI) + preset attivo. */
 export function listPresets() {
   const s = readStore()
@@ -62,7 +86,8 @@ export function applyPreset(name) {
   const s = readStore()
   const preset = s.presets.find((p) => p.name === name)
   if (!preset) throw new Error(`Preset «${name}» non trovato`)
-  const applied = saveSettings({ ...preset.settings })
+  const merged = keepExistingSecrets({ ...preset.settings }, getSettings())
+  const applied = saveSettings(merged)
   s.active = name
   writeStore(s)
   return applied
@@ -77,10 +102,17 @@ export function deletePreset(name) {
   return { removed: s.presets.length < before, ...listPresets() }
 }
 
-/** Ritorna il preset completo (per l'export JSON). */
+/** Ritorna il preset completo (uso interno). */
 export function getPreset(name) {
   const s = readStore()
   return s.presets.find((p) => p.name === name) || null
+}
+
+/** Ritorna il preset per l'export JSON, con le password SMTP/FTP azzerate. */
+export function getPresetForExport(name) {
+  const preset = getPreset(name)
+  if (!preset) return null
+  return { ...preset, settings: redactSecrets(preset.settings) }
 }
 
 /** Importa un preset da un oggetto JSON { name, settings } (o settings puri + nome). */

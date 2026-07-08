@@ -63,7 +63,8 @@
 
   --c-text-primary:   #1a1b2e;
   --c-text-secondary: #4a4a6a;
-  --c-text-muted:     #8888aa;
+  /* #71718f su sfondo chiaro dà ~4.7:1, sopra la soglia WCAG AA (4.5:1) per testo normale */
+  --c-text-muted:     #71718f;
 
   --c-border:         #d8d8ea;
   --c-border-focus:   #e91e8c;
@@ -86,6 +87,12 @@ body {
   color: var(--c-text-primary);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Testo/contenuto selezionabile e copiabile (email, targhe, CF, righe di
+   registro): il blocco selezione resta solo sul chrome non testuale. */
+.titlebar, .sidebar-nav, .nav-item, .tab-btn, .btn, .btn-primary, .btn-secondary,
+.btn-ghost, .btn-danger, .btn-icon, .collapse-header, .field-summary {
   user-select: none;
 }
 
@@ -1595,6 +1602,20 @@ a.contact-info:hover { opacity: 0.8; }
 .collapse-header:hover .section-title { color: var(--c-accent); }
 .field-summary { flex-wrap: wrap; row-gap: 4px; font-size: 13px; }
 .field-summary strong { font-size: 13px; }
+
+/* ─── Sotto-tab Configurazioni ───────────────────────────────── */
+.config-tabs {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 20px; padding-bottom: 0;
+}
+.config-tab-btn {
+  padding: 9px 14px; border: none; background: transparent; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--c-text-secondary);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.config-tab-btn:hover { color: var(--c-text-primary); }
+.config-tab-btn.active { color: var(--c-accent); border-bottom-color: var(--c-accent); }
 
 /* ─── Preset di configurazione ──────────────────────────────── */
 .preset-list { display: flex; flex-direction: column; gap: 8px; }

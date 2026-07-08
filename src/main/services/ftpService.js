@@ -38,13 +38,18 @@ export async function testConnection(profile) {
   })
 }
 
-/** Carica un file locale nella cartella remota del profilo. Ritorna { ok, remotePath }. */
-export async function uploadFile(profile, localPath) {
+/** Carica un file locale nella cartella remota del profilo, con avanzamento opzionale. Ritorna { ok, remotePath }. */
+export async function uploadFile(profile, localPath, onProgress) {
   return withClient(profile, async (client) => {
     const dir = String(profile.dir || '').trim()
     if (dir) await client.ensureDir(dir)
     const name = basename(localPath)
-    await client.uploadFrom(localPath, name)
+    if (onProgress) client.trackProgress((info) => onProgress(info.bytes))
+    try {
+      await client.uploadFrom(localPath, name)
+    } finally {
+      if (onProgress) client.trackProgress()
+    }
     const pwd = await client.pwd()
     return { ok: true, remotePath: `${pwd.replace(/\/$/, '')}/${name}` }
   })

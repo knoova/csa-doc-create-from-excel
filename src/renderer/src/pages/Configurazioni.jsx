@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import Banner from '../components/Banner.jsx'
 
 const FIELD_TYPES = ['text', 'number', 'date', 'email', 'phone', 'select', 'fixed']
 
@@ -22,27 +23,27 @@ const Chevron = ({ open }) => (
   </svg>
 )
 
-/** Sezione collassabile: chiusa di default, si apre/chiude dal titolo. */
-function Section({ title, desc, defaultOpen = false, actions = null, children }) {
-  const [open, setOpen] = useState(defaultOpen)
+/** Pannello di una sotto-tab: sempre visibile (è l'unica tab attiva), niente accordion. */
+function Panel({ title, desc, actions, children }) {
   return (
     <div className="card card-section">
-      <button type="button" className="collapse-header" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <Chevron open={open} />
-        <div style={{ textAlign: 'left' }}>
-          <div className="section-title" style={{ margin: 0 }}>{title}</div>
-          {desc && <div className="section-desc" style={{ margin: '2px 0 0' }}>{desc}</div>}
-        </div>
-      </button>
-      {open && (
-        <div style={{ marginTop: 12 }}>
-          {actions && <div className="flex gap-2" style={{ marginBottom: 12, flexWrap: 'wrap' }}>{actions}</div>}
-          {children}
-        </div>
-      )}
+      <div className="section-title" style={{ margin: 0 }}>{title}</div>
+      {desc && <div className="section-desc" style={{ margin: '2px 0 16px' }}>{desc}</div>}
+      {actions && <div className="flex gap-2" style={{ margin: desc ? 0 : '12px 0 16px', flexWrap: 'wrap' }}>{actions}</div>}
+      <div style={{ marginTop: 12 }}>{children}</div>
     </div>
   )
 }
+
+const CONFIG_TABS = [
+  { key: 'preset', labelKey: 'config.sectionPresets' },
+  { key: 'fields', labelKey: 'config.sectionFields' },
+  { key: 'prezzi', labelKey: 'config.sectionPrezzi' },
+  { key: 'date', labelKey: 'config.sectionDate' },
+  { key: 'ftp', labelKey: 'config.sectionFtp' },
+  { key: 'access', labelKey: 'config.sectionAccess' },
+  { key: 'appearance', labelKey: 'config.sectionAppearance' }
+]
 
 /** Riga campo compatta: riassunto sempre visibile, dettagli espandibili. */
 function FieldItem({ f, t, onPatch, onDelete }) {
@@ -151,7 +152,7 @@ function FtpProfile({ env, profile, t, onPatch }) {
           {testing ? <span className="spinner spinner-sm" /> : null} {t('config.ftpTest')}
         </button>
       </div>
-      {result && <div className={`alert alert-${result.type}`} style={{ marginBottom: 8 }}>{result.msg}</div>}
+      {result && <Banner type={result.type} style={{ marginBottom: 8 }}>{result.msg}</Banner>}
       <div className="maschera-grid">
         <div className="form-group">
           <label className="form-label">{t('config.ftpHost')}</label>
@@ -193,6 +194,7 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
   const [presets, setPresets] = useState({ active: '', presets: [] })
   const [presetName, setPresetName] = useState('')
   const [banner, setBanner] = useState(null)
+  const [tab, setTab] = useState('preset')
   const dirtyRef = useRef(false)
   dirtyRef.current = dirty
 
@@ -211,8 +213,18 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
     }
   }, [visible])
 
+  // Se ci sono modifiche non salvate, un cambio esterno di tema/lingua/accento
+  // (es. dal Sidebar) va comunque recepito subito: altrimenti il successivo
+  // "Salva" riscriverebbe l'intero oggetto stale e lo cancellerebbe in
+  // silenzio. Gli altri campi (campi/prezzi/ftp/...) restano quelli in
+  // modifica finché l'utente non salva o annulla.
   useEffect(() => {
-    const onChanged = (e) => { if (e.detail && !dirtyRef.current) setS(e.detail) }
+    const onChanged = (e) => {
+      if (!e.detail) return
+      if (!dirtyRef.current) { setS(e.detail); return }
+      const { theme, language, accentColor } = e.detail
+      setS((prev) => ({ ...prev, theme, language, accentColor }))
+    }
     window.addEventListener('settings-changed', onChanged)
     return () => window.removeEventListener('settings-changed', onChanged)
   }, [])
@@ -319,10 +331,26 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
       </div>
 
       <div className="page-body">
-        {banner && <div className={`alert alert-${banner.type}`} style={{ marginBottom: 12 }}>{banner.msg}</div>}
+        {banner && <Banner type={banner.type} style={{ marginBottom: 12 }}>{banner.msg}</Banner>}
+
+        <div className="config-tabs" role="tablist" aria-label={t('config.title')}>
+          {CONFIG_TABS.map((tb) => (
+            <button
+              key={tb.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === tb.key}
+              className={`config-tab-btn${tab === tb.key ? ' active' : ''}`}
+              onClick={() => setTab(tb.key)}
+            >
+              {t(tb.labelKey)}
+            </button>
+          ))}
+        </div>
 
         {/* ─── Preset con nome ─── */}
-        <Section title={t('config.sectionPresets')} desc={t('config.sectionPresetsDesc')} defaultOpen>
+        {tab === 'preset' && (
+        <Panel title={t('config.sectionPresets')} desc={t('config.sectionPresetsDesc')}>
           {presets.presets.length === 0 ? (
             <p className="section-desc" style={{ marginTop: 0 }}>{t('config.presetNone')}</p>
           ) : (
@@ -356,10 +384,13 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
             <button className="btn btn-primary" onClick={savePreset} disabled={!presetName.trim()}>{t('config.presetSave')}</button>
             <button className="btn btn-ghost" onClick={importPreset}>{t('config.presetImport')}</button>
           </div>
-        </Section>
+          <p className="section-desc" style={{ marginTop: 10, marginBottom: 0 }}>{t('config.presetImportHint')}</p>
+        </Panel>
+        )}
 
         {/* ─── Campi ─── */}
-        <Section
+        {tab === 'fields' && (
+        <Panel
           title={t('config.sectionFields')}
           desc={t('config.sectionFieldsDesc')}
           actions={(
@@ -374,10 +405,12 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
               <FieldItem key={`${f.id}_${idx}`} f={f} t={t} onPatch={(p) => patchField(idx, p)} onDelete={() => deleteField(idx)} />
             ))}
           </div>
-        </Section>
+        </Panel>
+        )}
 
         {/* ─── Prezzi ─── */}
-        <Section title={t('config.sectionPrezzi')} desc={t('config.sectionPrezziDesc')}>
+        {tab === 'prezzi' && (
+        <Panel title={t('config.sectionPrezzi')} desc={t('config.sectionPrezziDesc')}>
           <div className="field-list">
             {Object.entries(s.prezzi).map(([code, row]) => (
               <div className="field-item" key={code} style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
@@ -389,26 +422,32 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
               </div>
             ))}
           </div>
-        </Section>
+        </Panel>
+        )}
 
         {/* ─── Date ─── */}
-        <Section title={t('config.sectionDate')} desc={t('config.sectionDateDesc')}>
+        {tab === 'date' && (
+        <Panel title={t('config.sectionDate')} desc={t('config.sectionDateDesc')}>
           <div className="form-group" style={{ maxWidth: 220 }}>
             <label className="form-label">{t('config.dateOffset')}</label>
             <input className="form-input" type="number" value={s.dateOffsetDays ?? 0} onChange={(e) => patch({ dateOffsetDays: parseInt(e.target.value || '0', 10) })} />
           </div>
-        </Section>
+        </Panel>
+        )}
 
         {/* ─── FTP staging / prod ─── */}
-        <Section title={t('config.sectionFtp')} desc={t('config.sectionFtpDesc')}>
+        {tab === 'ftp' && (
+        <Panel title={t('config.sectionFtp')} desc={t('config.sectionFtpDesc')}>
           <div className="ftp-grid">
             <FtpProfile env="staging" profile={s.ftp?.staging} t={t} onPatch={(p) => patchFtp('staging', p)} />
             <FtpProfile env="prod" profile={s.ftp?.prod} t={t} onPatch={(p) => patchFtp('prod', p)} />
           </div>
-        </Section>
+        </Panel>
+        )}
 
         {/* ─── Accesso / SMTP ─── */}
-        <Section title={t('config.sectionAccess')} desc={t('config.sectionAccessDesc')}>
+        {tab === 'access' && (
+        <Panel title={t('config.sectionAccess')} desc={t('config.sectionAccessDesc')}>
           <div className="maschera-grid">
             <div className="form-group span-2">
               <label className="form-label">{t('config.acceptedDomains')}</label>
@@ -446,10 +485,12 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
               </label>
             </div>
           </div>
-        </Section>
+        </Panel>
+        )}
 
         {/* ─── Aspetto ─── */}
-        <Section title={t('config.sectionAppearance')}>
+        {tab === 'appearance' && (
+        <Panel title={t('config.sectionAppearance')}>
           <div className="maschera-grid">
             <div className="form-group">
               <label className="form-label">{t('config.theme')}</label>
@@ -473,12 +514,13 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
               </div>
             </div>
           </div>
-        </Section>
+        </Panel>
+        )}
 
         <div className="config-savebar">
           <button className="btn btn-primary" onClick={save}>{t('config.save')}</button>
-          {dirty && !saved && <span className="badge badge-info">{t('config.unsaved')}</span>}
-          {saved && <span className="alert alert-success" style={{ padding: '6px 12px' }}>{t('config.saved')}</span>}
+          {dirty && !saved && <span className="badge badge-info" role="status" aria-live="polite">{t('config.unsaved')}</span>}
+          {saved && <span className="alert alert-success" role="status" aria-live="polite" style={{ padding: '6px 12px' }}>{t('config.saved')}</span>}
         </div>
       </div>
     </>

@@ -29,6 +29,11 @@ export default function RecordForm({ form, fields, idd, errors = {}, editable, o
     const err = errors[f.id]
     const span = (f.type === 'text' && (f.maxLength || 0) >= 30) ? ' span-2' : ''
     const disabled = !editable || f.type === 'fixed'
+    // In sola lettura un campo 'select' deve mostrare l'etichetta leggibile
+    // (es. "Maschio"), non il valore grezzo salvato (es. "M").
+    const displayVal = (f.type === 'select' && disabled)
+      ? ((f.options || []).find(o => o.value === val)?.label ?? val)
+      : val
     return (
       <div className={`form-group${span}`} key={f.id}>
         <label className="form-label">{f.label}{f.required ? ' *' : ''}</label>
@@ -40,7 +45,7 @@ export default function RecordForm({ form, fields, idd, errors = {}, editable, o
         ) : (
           <input
             className={`form-input${err ? ' invalid' : ''}`}
-            value={val ?? ''}
+            value={displayVal ?? ''}
             disabled={disabled}
             placeholder={f.type === 'date' ? 'GG/MM/AAAA' : ''}
             onChange={(e) => onField?.(f.id, e.target.value)}
