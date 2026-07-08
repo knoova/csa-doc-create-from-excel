@@ -1,10 +1,11 @@
 import { dialog, shell, app } from 'electron'
 import { join } from 'path'
-import { getSettings, saveSettings, resetFieldDefaults } from '../services/settingsService.js'
+import { getSettings, saveSettings, patchSettings, resetFieldDefaults } from '../services/settingsService.js'
 import { domainAllowed, createToken, getSession, clearSession } from '../services/authService.js'
 import { sendMagicLink } from '../services/mailService.js'
 import { loadFlusso } from '../services/flussoService.js'
 import { fillModulo } from '../services/docxService.js'
+import { buildFinalPdf } from '../services/pdfService.js'
 import { writeRows } from '../services/xlsxFlussoWriter.js'
 import { logAction, listAudit, exportAuditCsv } from '../services/auditLogger.js'
 import { checkForUpdate } from '../services/updateService.js'
@@ -16,9 +17,9 @@ import {
 import { appendRowsToFile } from '../services/xlsxAppend.js'
 import { testConnection, uploadFile } from '../services/ftpService.js'
 import {
-  listPresets, saveCurrentAsPreset, applyPreset, deletePreset, getPreset, importPreset
+  listPresets, saveCurrentAsPreset, applyPreset, deletePreset, getPresetForExport, importPreset
 } from '../services/configPresets.js'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, statSync } from 'fs'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -118,8 +119,22 @@ export function registerHandlers(ipcMain, getMainWindow) {
       const saved = addRecord(record, user)
       // Avanza la numerazione solo se l'identificativo coincide col suggerito.
       const numbering = advanceNumbering(record?.identificativo || '')
-      logAction({ user, action: 'save', record: recInfo, files: [docxPath], result: 'ok' })
-      return { ok: true, record: saved, files: { docx: docxPath }, dir: outputDir, numbering }
+
+      // PDF finale (modulo + allegato uniti). Non deve mai bloccare il
+      // salvataggio: se la conversione fallisce si produce uno ZIP di
+      // ripiego con docx + allegato, e l'esito viene segnalato a parte.
+      const pdfResult = await buildFinalPdf(docxPath, outputDir, `Adesione_${base}`)
+      const files = { docx: docxPath, pdf: pdfResult.ok ? pdfResult.pdfPath : null, zip: pdfResult.zipPath || null }
+      const logFiles = [docxPath, pdfResult.pdfPath, pdfResult.zipPath].filter(Boolean)
+
+      logAction({
+        user, action: 'save', record: recInfo, files: logFiles,
+        result: pdfResult.ok ? 'ok' : 'partial', error: pdfResult.ok ? null : pdfResult.error
+      })
+      return {
+        ok: true, record: saved, files, dir: outputDir, numbering,
+        pdfError: pdfResult.ok ? null : pdfResult.error
+      }
     } catch (err) {
       const msg = String(err && err.message || err)
       logAction({ user, action: 'save', record: recInfo, files: [], result: 'error', error: msg })
@@ -240,8 +255,14 @@ export function registerHandlers(ipcMain, getMainWindow) {
   ipcMain.handle('ftp:upload', async (_e, { env, filePath }) => {
     const session = getSession()
     const user = session?.email || 'sconosciuto'
+    const win = getMainWindow()
+    let total = 0
+    try { total = statSync(filePath).size } catch (_) {}
     try {
-      const res = await uploadFile(ftpProfile(env), filePath)
+      const res = await uploadFile(ftpProfile(env), filePath, (bytes) => {
+        const pct = total ? Math.min(100, Math.round((bytes / total) * 100)) : null
+        try { win?.webContents.send('ftp:progress', { env, bytes, total, pct }) } catch (_) {}
+      })
       logAction({
         user, action: 'ftp-upload',
         record: { env, remote: res.remotePath },
@@ -271,6 +292,10 @@ export function registerHandlers(ipcMain, getMainWindow) {
 
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:save', (_e, settings) => broadcastSettings(saveSettings(settings)))
+  // Patch superficiale (es. tema/lingua dal Sidebar): rilegge da disco prima
+  // di scrivere, così non sovrascrive modifiche non salvate fatte altrove
+  // (es. la maschera Configurazioni aperta con edit in corso).
+  ipcMain.handle('settings:patch', (_e, partial) => broadcastSettings(patchSettings(partial || {})))
   ipcMain.handle('settings:resetFields', () => broadcastSettings(resetFieldDefaults()))
 
   // ─── Preset di configurazione con nome ──────────────────────────────────--
@@ -297,7 +322,8 @@ export function registerHandlers(ipcMain, getMainWindow) {
   })
 
   ipcMain.handle('presets:export', async (_e, name) => {
-    const preset = getPreset(name)
+    // Il JSON esportato non contiene mai le password SMTP/FTP in chiaro.
+    const preset = getPresetForExport(name)
     if (!preset) return { ok: false, error: 'Preset non trovato' }
     const win = getMainWindow()
     const res = await dialog.showSaveDialog(win, {

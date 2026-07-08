@@ -29,6 +29,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ─── FTP (staging / prod) ──────────────────────────────────────────────--
   ftpTest: (env) => ipcRenderer.invoke('ftp:test', env),
   ftpUpload: (env, filePath) => ipcRenderer.invoke('ftp:upload', { env, filePath }),
+  onFtpProgress: (callback) => {
+    ipcRenderer.on('ftp:progress', (_e, info) => callback(info))
+  },
+  removeFtpProgressListeners: () => ipcRenderer.removeAllListeners('ftp:progress'),
 
   // ─── Numerazione progressiva ─────────────────────────────────────────────--
   getNumbering: () => ipcRenderer.invoke('numbering:get'),
@@ -37,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ─── Settings ────────────────────────────────────────────────────────────--
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
+  patchSettings: (partial) => ipcRenderer.invoke('settings:patch', partial),
   resetFieldDefaults: () => ipcRenderer.invoke('settings:resetFields'),
   onSettingsChanged: (callback) => {
     ipcRenderer.on('settings:changed', (_e, settings) => callback(settings))

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import RecordForm from '../components/RecordForm.jsx'
+import Banner from '../components/Banner.jsx'
 import { validateRecord } from '../../../main/services/recordMapper.js'
 
 const ERROR_LABELS = { maxlen: 'lunghezza max', date: 'GG/MM/AAAA', number: 'numero', email: 'email', select: 'valore' }
@@ -16,6 +17,7 @@ export default function Record({ visible }) {
   const [banner, setBanner] = useState(null)
   const [lastExport, setLastExport] = useState(null)
   const [ftpBusy, setFtpBusy] = useState('')
+  const [ftpPct, setFtpPct] = useState(null)
   // Vista dettaglio: { id, editing, form } — null = elenco
   const [detail, setDetail] = useState(null)
 
@@ -36,6 +38,12 @@ export default function Record({ visible }) {
     const onChanged = (e) => setSettings(e.detail || null)
     window.addEventListener('settings-changed', onChanged)
     return () => window.removeEventListener('settings-changed', onChanged)
+  }, [])
+
+  // Avanzamento dell'upload FTP in corso (percentuale sul file caricato).
+  useEffect(() => {
+    window.electronAPI?.onFtpProgress?.((info) => setFtpPct(info?.pct ?? null))
+    return () => window.electronAPI?.removeFtpProgressListeners?.()
   }, [])
 
   const fields = settings?.fields || []
@@ -132,7 +140,7 @@ export default function Record({ visible }) {
 
   const ftpUpload = async (env) => {
     if (!lastExport) return
-    setFtpBusy(env); setBanner(null)
+    setFtpBusy(env); setFtpPct(0); setBanner(null)
     try {
       const res = await window.electronAPI.ftpUpload(env, lastExport)
       if (res?.ok) setBanner({ type: 'success', msg: t('record.ftpUploaded', { env, path: res.remotePath }) })
@@ -140,7 +148,7 @@ export default function Record({ visible }) {
     } catch (e) {
       setBanner({ type: 'error', msg: String(e?.message || e) })
     } finally {
-      setFtpBusy('')
+      setFtpBusy(''); setFtpPct(null)
     }
   }
 
@@ -243,7 +251,7 @@ export default function Record({ visible }) {
             </div>
           </div>
 
-          {banner && <div className={`alert alert-${banner.type}`} style={{ marginBottom: 12 }}>{banner.msg}</div>}
+          {banner && <Banner type={banner.type} style={{ marginBottom: 12 }}>{banner.msg}</Banner>}
 
           {detailRecord && (
             <div className="record-meta">
@@ -315,17 +323,19 @@ export default function Record({ visible }) {
           </div>
         </div>
 
-        {banner && <div className={`alert alert-${banner.type}`} style={{ marginBottom: 12 }}>{banner.msg}</div>}
+        {banner && <Banner type={banner.type} style={{ marginBottom: 12 }}>{banner.msg}</Banner>}
 
         {lastExport && ftpEnvs.length > 0 && (
-          <div className="alert alert-info" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <Banner type="info" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <span>{t('record.ftpPrompt', { file: lastExport.replace(/^.*[/\\]/, '') })}</span>
             {ftpEnvs.map((env) => (
               <button key={env} className="btn btn-secondary" onClick={() => ftpUpload(env)} disabled={!!ftpBusy}>
-                {ftpBusy === env ? <span className="spinner spinner-sm" /> : null} {t(`record.ftpUpload_${env}`)}
+                {ftpBusy === env ? <span className="spinner spinner-sm" /> : null}
+                {' '}{t(`record.ftpUpload_${env}`)}
+                {ftpBusy === env && ftpPct != null && ` (${ftpPct}%)`}
               </button>
             ))}
-          </div>
+          </Banner>
         )}
 
         {filtered.length === 0 ? (
@@ -355,6 +365,9 @@ export default function Record({ visible }) {
                           type="checkbox"
                           checked={!!selected[r.id]}
                           onChange={() => toggleSel(r.id)}
+                          aria-label={t('record.selectRow', {
+                            name: [d.identificativo, d.cognome, d.nome].filter(Boolean).join(' ') || r.id
+                          })}
                         />
                       </td>
                       <td className="mono-sm">{d.identificativo || '—'}</td>

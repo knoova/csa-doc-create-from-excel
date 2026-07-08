@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import Banner from '../components/Banner.jsx'
 import { groupByExpiry } from '../../../main/services/scadenze.js'
 
 const BUCKETS = [
@@ -96,7 +97,7 @@ export default function Scadenze({ visible }) {
           />
         </div>
 
-        {banner && <div className={`alert alert-${banner.type}`} style={{ marginBottom: 12 }}>{banner.msg}</div>}
+        {banner && <Banner type={banner.type} style={{ marginBottom: 12 }}>{banner.msg}</Banner>}
 
         {total === 0 ? (
           <div className="empty-state"><p>{t('scadenze.empty')}</p></div>
@@ -134,7 +135,14 @@ export default function Scadenze({ visible }) {
                         return (
                           <tr key={r.id}>
                             <td>
-                              <input type="checkbox" checked={!!selected[r.id]} onChange={() => toggleSel(r.id)} />
+                              <input
+                                type="checkbox"
+                                checked={!!selected[r.id]}
+                                onChange={() => toggleSel(r.id)}
+                                aria-label={t('record.selectRow', {
+                                  name: [d.identificativo, d.cognome, d.nome].filter(Boolean).join(' ') || r.id
+                                })}
+                              />
                             </td>
                             <td className="mono-sm">{d.identificativo || '—'}</td>
                             <td>{[d.cognome, d.nome].filter(Boolean).join(' ') || '—'}</td>

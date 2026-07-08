@@ -97,19 +97,17 @@ export default function Sidebar({ page, onNavigate, theme, onThemeChange, lang, 
       .catch(() => {})
   }, [])
 
+  // Patch mirata (non l'intero oggetto settings): evita di sovrascrivere
+  // modifiche non salvate aperte altrove (es. Configurazioni in edit).
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
     onThemeChange(next)
-    window.electronAPI.getSettings().then(s => {
-      window.electronAPI.saveSettings({ ...s, theme: next })
-    })
+    window.electronAPI.patchSettings({ theme: next })
   }
 
   const setLang = (l) => {
     onLangChange(l)
-    window.electronAPI.getSettings().then(s => {
-      window.electronAPI.saveSettings({ ...s, language: l })
-    })
+    window.electronAPI.patchSettings({ language: l })
   }
 
   return (

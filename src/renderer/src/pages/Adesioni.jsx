@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import Banner from '../components/Banner.jsx'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const GROUP_ORDER = ['polizza', 'contraente', 'veicolo', 'copertura', 'contatti']
@@ -295,15 +296,20 @@ export default function Adesioni({ visible = true }) {
               <div className="card empty-state"><p>{t('adesioni.selectRow')}</p></div>
             ) : (
               <>
-                {banner && <div className={`alert alert-${banner.type}`}>{banner.msg}</div>}
+                {banner && <Banner type={banner.type}>{banner.msg}</Banner>}
                 {result && (
-                  <div className="alert alert-success" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Banner type="success" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                     <strong>{t('adesioni.savedTitle')}</strong>
-                    <span>{t('adesioni.savedBody')}</span>
+                    <span>{result.files?.pdf ? t('adesioni.savedBodyPdf') : t('adesioni.savedBody')}</span>
                     <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={() => window.electronAPI.openPath(result.dir)}>
                       {t('adesioni.openFolder')}
                     </button>
-                  </div>
+                  </Banner>
+                )}
+                {result?.pdfError && (
+                  <Banner type="error">
+                    {t('adesioni.pdfFallbackZip', { error: result.pdfError })}
+                  </Banner>
                 )}
 
                 {groups.map(([g, gfields]) => (

@@ -81,6 +81,18 @@ export function saveSettings(settings) {
   return settings
 }
 
+/**
+ * Applica una patch superficiale ai settings correnti (rilette fresche da
+ * disco) e salva. Usata dai controlli "rapidi" (tema/lingua nel Sidebar) per
+ * evitare di sovrascrivere modifiche non salvate presenti altrove (es. la
+ * maschera Configurazioni aperta con edit in corso).
+ */
+export function patchSettings(partial) {
+  const current = getSettings()
+  const next = { ...current, ...partial }
+  return saveSettings(next)
+}
+
 export function resetFieldDefaults() {
   const s = getSettings()
   const d = buildDefaults()

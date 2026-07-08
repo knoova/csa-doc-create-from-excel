@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import iconUrl from '../assets/icon.png'
+import Banner from '../components/Banner.jsx'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -40,9 +41,9 @@ export default function Login() {
         <p className="login-subtitle">{t('login.subtitle')}</p>
 
         {status === 'sent' ? (
-          <div className="alert alert-success" style={{ textAlign: 'left' }}>
+          <Banner type="success" style={{ textAlign: 'left' }}>
             <span>{t('login.sent')}</span>
-          </div>
+          </Banner>
         ) : (
           <form className="login-form" onSubmit={submit}>
             <div className="form-group">
