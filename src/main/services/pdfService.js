@@ -1,140 +1,117 @@
 /**
- * Conversione del modulo .docx compilato in PDF e unione con l'allegato fisso
+ * Generazione del PDF del Modulo di Adesione a partire dal template HTML
+ * esportato da Pages (`templates/modulo_html/`), e unione con l'allegato fisso
  * "CSA Convenzione Assistenza Tutela - DIP.pdf" in un unico documento.
  *
- * Motore primario: `mammoth` (docx → HTML, JS puro) renderizzato in una
- * BrowserWindow nascosta e stampato in PDF con `webContents.printToPDF`, API
- * nativa di Electron/Chromium — nessun processo esterno né automazione di
- * altre applicazioni. Se fallisce (docx non interpretabile da mammoth), si
- * ripiega su LibreOffice headless, se presente. Se anche questo fallisce,
- * invece di bloccare il salvataggio si produce uno ZIP con il .docx e il PDF
- * allegato, così l'operatore ha comunque tutto il necessario da inviare a mano.
+ * Perché HTML e non conversione dal .docx: il layout va compilato con dati di
+ * lunghezza variabile senza sforare. Un motore che RIFLUISCE (HTML/CSS in
+ * Chromium) è l'unico modo per gestire valori lunghi (vanno a capo, il blocco
+ * si allunga) senza rimpicciolire né tagliare. Il render usa `printToPDF` di
+ * Electron (stesso motore Chromium) — nessun processo esterno, nessuna
+ * dipendenza da Word/LibreOffice.
+ *
+ * Se il render fallisce, invece di bloccare il salvataggio si produce uno ZIP
+ * con il .docx e il PDF allegato, così l'operatore ha comunque tutto.
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync } from 'fs'
-import { join, basename, dirname } from 'path'
+import { join, basename } from 'path'
 import { tmpdir } from 'os'
-import { execFile } from 'child_process'
 import { app, BrowserWindow } from 'electron'
-import mammoth from 'mammoth'
 import PizZip from 'pizzip'
 import { PDFDocument } from 'pdf-lib'
+import { buildDocxData } from './recordMapper.js'
+import { getSettings } from './settingsService.js'
+import { fillAndReflowScript } from './moduloFill.js'
 
-export function attachmentPath() {
-  const candidates = [
-    join(process.resourcesPath || '', 'templates', 'CSA Convenzione Assistenza Tutela - DIP.pdf'),
-    join(app.getAppPath(), 'templates', 'CSA Convenzione Assistenza Tutela - DIP.pdf'),
-    join(app.getAppPath(), '..', 'templates', 'CSA Convenzione Assistenza Tutela - DIP.pdf'),
-    join(process.cwd(), 'templates', 'CSA Convenzione Assistenza Tutela - DIP.pdf')
-  ]
-  for (const p of candidates) {
+const ATTACHMENT_NAME = 'CSA Convenzione Assistenza Tutela - DIP.pdf'
+
+function firstExisting(paths) {
+  for (const p of paths) {
     try { if (p && existsSync(p)) return p } catch (_) {}
   }
-  throw new Error('Allegato PDF non trovato (templates/CSA Convenzione Assistenza Tutela - DIP.pdf)')
+  return null
 }
 
-function run(cmd, args, opts = {}) {
-  return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 60000, ...opts }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}${stderr ? `\n${stderr}` : ''}`))
-      else resolve(stdout)
-    })
+export function attachmentPath() {
+  const p = firstExisting([
+    join(process.resourcesPath || '', 'templates', ATTACHMENT_NAME),
+    join(app.getAppPath(), 'templates', ATTACHMENT_NAME),
+    join(app.getAppPath(), '..', 'templates', ATTACHMENT_NAME),
+    join(process.cwd(), 'templates', ATTACHMENT_NAME)
+  ])
+  if (!p) throw new Error(`Allegato PDF non trovato (templates/${ATTACHMENT_NAME})`)
+  return p
+}
+
+/** Cartella del template HTML del modulo (contiene page-1/2.xhtml, css, fonts, images). */
+export function moduloHtmlDir() {
+  const p = firstExisting([
+    join(process.resourcesPath || '', 'templates', 'modulo_html'),
+    join(app.getAppPath(), 'templates', 'modulo_html'),
+    join(app.getAppPath(), '..', 'templates', 'modulo_html'),
+    join(process.cwd(), 'templates', 'modulo_html')
+  ])
+  if (!p) throw new Error('Template HTML del modulo non trovato (templates/modulo_html)')
+  return p
+}
+
+// CSS che mappa il sistema di coordinate del template (595×842 "px", che sono
+// punti a 72dpi = A4) su una pagina A4 reale: Chromium stampa 1px=1/96", quindi
+// zoom 96/72 porta il contenuto a riempire l'A4 (595×842 pt).
+const A4_STYLE = "@page{size:A4;margin:0} html{zoom:1.3333333}"
+
+async function renderPageToPdf(win, pagePath, data) {
+  await win.loadFile(pagePath)
+  await win.webContents.executeJavaScript('document.fonts ? document.fonts.ready.then(()=>true) : true')
+  // 1) riempimento segnaposto + riflusso (misurato a zoom 1)
+  await win.webContents.executeJavaScript(fillAndReflowScript(data))
+  // 2) solo dopo, si applica la scala per riempire l'A4
+  await win.webContents.executeJavaScript(
+    `(function(){var s=document.createElement('style');s.textContent=${JSON.stringify(A4_STYLE)};document.head.appendChild(s);})();true`
+  )
+  return win.webContents.printToPDF({
+    printBackground: true,
+    pageSize: 'A4',
+    margins: { marginType: 'none' },
+    preferCSSPageSize: true
   })
 }
 
-const PRINT_HTML_STYLE = `
-  body { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 12pt; color: #111; padding: 32px; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #333; padding: 4px 8px; }
-  p { margin: 0 0 8px; }
-`
+/** Renderizza il modulo compilato (pagine 1+2) in un unico buffer PDF A4. */
+export async function renderModuloPdf(record, settings) {
+  const s = settings || getSettings()
+  const data = buildDocxData(record, s.fields, s.prezzi, s.dateOffsetDays)
+  const dir = moduloHtmlDir()
 
-/** Converte il docx in PDF con mammoth (docx → HTML) + printToPDF di Electron (nessun processo esterno). */
-async function convertWithMammothPrint(docxPath, pdfOutPath) {
-  const { value: bodyHtml } = await mammoth.convertToHtml({ path: docxPath })
-  const fullHtml = `<!doctype html><html><head><meta charset="utf-8"><style>${PRINT_HTML_STYLE}</style></head><body>${bodyHtml}</body></html>`
-
-  const tmpDir = mkdtempSync(join(tmpdir(), 'csa-mammoth-'))
-  const htmlPath = join(tmpDir, 'modulo.html')
-  writeFileSync(htmlPath, fullHtml, 'utf-8')
-
-  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: false } })
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { offscreen: true, sandbox: false, javascript: true, images: true }
+  })
   try {
-    await win.loadFile(htmlPath)
-    const pdfBuffer = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' })
-    writeFileSync(pdfOutPath, pdfBuffer)
+    const pageFiles = ['page-1.xhtml', 'page-2.xhtml'].filter((f) => existsSync(join(dir, f)))
+    const buffers = []
+    for (const f of pageFiles) {
+      buffers.push(await renderPageToPdf(win, join(dir, f), data))
+    }
+    return mergePdfBuffers(buffers)
   } finally {
     win.destroy()
-    try { rmSync(tmpDir, { recursive: true, force: true }) } catch (_) {}
   }
-  if (!existsSync(pdfOutPath)) throw new Error('printToPDF non ha prodotto il PDF atteso')
 }
 
-function resolveSofficeBin() {
-  const candidates = [
-    'soffice',
-    'libreoffice',
-    'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
-    'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
-    '/usr/bin/soffice',
-    '/opt/libreoffice/program/soffice'
-  ]
-  return candidates
-}
-
-/** Converte il docx in PDF con LibreOffice headless (fallback multipiattaforma). */
-async function convertWithLibreOffice(docxPath, pdfOutPath) {
-  const outDir = dirname(pdfOutPath)
-  let lastErr = null
-  for (const bin of resolveSofficeBin()) {
-    try {
-      await run(bin, ['--headless', '--convert-to', 'pdf', '--outdir', outDir, docxPath])
-      const produced = join(outDir, basename(docxPath).replace(/\.docx$/i, '.pdf'))
-      if (existsSync(produced)) {
-        if (produced !== pdfOutPath) {
-          writeFileSync(pdfOutPath, readFileSync(produced))
-          try { rmSync(produced) } catch (_) {}
-        }
-        return
-      }
-    } catch (err) {
-      lastErr = err
-    }
-  }
-  throw lastErr || new Error('LibreOffice non trovato')
-}
-
-/** Converte il docx compilato in PDF: mammoth+printToPDF (nessuna dipendenza esterna), con fallback a LibreOffice headless se presente. */
-export async function convertDocxToPdf(docxPath, pdfOutPath) {
-  const errors = []
-  try {
-    await convertWithMammothPrint(docxPath, pdfOutPath)
-    return
-  } catch (err) {
-    errors.push(`Mammoth: ${err.message}`)
-  }
-  try {
-    await convertWithLibreOffice(docxPath, pdfOutPath)
-    return
-  } catch (err) {
-    errors.push(`LibreOffice: ${err.message}`)
-  }
-  throw new Error(`Impossibile generare il PDF. Dettagli: ${errors.join(' · ')}`)
-}
-
-/** Unisce due PDF (base + allegato in coda) in un unico file. */
-export async function mergePdfs(basePdfPath, attachmentPdfPath, outPath) {
+/** Unisce più PDF (buffer o path) in un unico documento. */
+export async function mergePdfBuffers(inputs) {
   const out = await PDFDocument.create()
-  for (const p of [basePdfPath, attachmentPdfPath]) {
-    const src = await PDFDocument.load(readFileSync(p))
+  for (const input of inputs) {
+    const bytes = Buffer.isBuffer(input) || input instanceof Uint8Array ? input : readFileSync(input)
+    const src = await PDFDocument.load(bytes)
     const pages = await out.copyPages(src, src.getPageIndices())
     for (const page of pages) out.addPage(page)
   }
-  const bytes = await out.save()
-  writeFileSync(outPath, bytes)
-  return outPath
+  return Buffer.from(await out.save())
 }
 
-/** Crea uno ZIP con il docx e il PDF allegato, da usare quando la conversione/unione in PDF non è riuscita. */
+/** Crea uno ZIP con il docx e il PDF allegato (rete di sicurezza se il render PDF fallisce). */
 export function buildFallbackZip(docxPath, attachmentPdfPath, outPath) {
   const zip = new PizZip()
   zip.file(basename(docxPath), readFileSync(docxPath))
@@ -145,28 +122,25 @@ export function buildFallbackZip(docxPath, attachmentPdfPath, outPath) {
 }
 
 /**
- * Genera il PDF finale (modulo compilato + allegato) a partire dal docx appena
- * creato. Non lancia mai: se la conversione/unione fallisce, produce uno ZIP
- * di ripiego con il .docx e l'allegato, e ritorna l'esito nel campo `ok`.
+ * Genera il PDF finale (modulo compilato + allegato) per un record.
+ * Non lancia mai: se il render/unione fallisce, produce uno ZIP di ripiego con
+ * il .docx e l'allegato, e riporta l'esito nel campo `ok`.
  */
-export async function buildFinalPdf(docxPath, outDir, baseName) {
+export async function buildFinalPdf(record, settings, docxPath, outDir, baseName) {
   const attachment = attachmentPath()
-  const tmpDir = mkdtempSync(join(tmpdir(), 'csa-pdf-'))
-  const tmpPdf = join(tmpDir, `${baseName}.pdf`)
   try {
-    await convertDocxToPdf(docxPath, tmpPdf)
+    const moduloPdf = await renderModuloPdf(record, settings)
+    const finalBytes = await mergePdfBuffers([moduloPdf, attachment])
     const finalPdf = join(outDir, `${baseName}.pdf`)
-    await mergePdfs(tmpPdf, attachment, finalPdf)
+    writeFileSync(finalPdf, finalBytes)
     return { ok: true, pdfPath: finalPdf }
   } catch (err) {
     try {
       const zipPath = join(outDir, `${baseName}.zip`)
       buildFallbackZip(docxPath, attachment, zipPath)
-      return { ok: false, zipPath, error: err.message }
+      return { ok: false, zipPath, error: String(err && err.message || err) }
     } catch (zipErr) {
-      return { ok: false, error: `${err.message} (fallback ZIP fallito: ${zipErr.message})` }
+      return { ok: false, error: `${String(err && err.message || err)} (fallback ZIP fallito: ${zipErr.message})` }
     }
-  } finally {
-    try { rmSync(tmpDir, { recursive: true, force: true }) } catch (_) {}
   }
 }
