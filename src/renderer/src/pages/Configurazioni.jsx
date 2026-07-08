@@ -246,6 +246,32 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
   })
   const patchFtp = (env, p) => patch({ ftp: { ...s.ftp, [env]: { ...(s.ftp?.[env] || {}), ...p } } })
 
+  // ─── Prezzi (tabella premi / pacchetti) ────────────────────────────────────
+  // `prezzi` è un oggetto { codice: { pacchetto, premio } }. Per consentire di
+  // rinominare il codice (che è la chiave) e mantenere l'ordine delle righe,
+  // lavoriamo su una lista di coppie [codice, riga] indicizzata per posizione.
+  const setPrezziEntries = (entries) => patch({ prezzi: Object.fromEntries(entries) })
+  const patchPrezzoRow = (idx, p) => {
+    const entries = Object.entries(s.prezzi)
+    entries[idx] = [entries[idx][0], { ...entries[idx][1], ...p }]
+    setPrezziEntries(entries)
+  }
+  const patchPrezzoCode = (idx, code) => {
+    const entries = Object.entries(s.prezzi)
+    entries[idx] = [code, entries[idx][1]]
+    setPrezziEntries(entries)
+  }
+  const deletePrezzo = (idx) => setPrezziEntries(Object.entries(s.prezzi).filter((_, i) => i !== idx))
+  const addPrezzo = () => {
+    const entries = Object.entries(s.prezzi)
+    const existing = new Set(entries.map(([c]) => c))
+    let n = entries.length + 1
+    let code = String(n).padStart(5, '0')
+    while (existing.has(code)) { n += 1; code = String(n).padStart(5, '0') }
+    entries.push([code, { pacchetto: '', premio: '' }])
+    setPrezziEntries(entries)
+  }
+
   const save = async () => {
     await window.electronAPI.saveSettings(s)
     setSaved(true)
@@ -410,18 +436,29 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
 
         {/* ─── Prezzi ─── */}
         {tab === 'prezzi' && (
-        <Panel title={t('config.sectionPrezzi')} desc={t('config.sectionPrezziDesc')}>
+        <Panel
+          title={t('config.sectionPrezzi')}
+          desc={t('config.sectionPrezziDesc')}
+          actions={<button className="btn btn-secondary" onClick={addPrezzo}>{t('config.addPrezzo')}</button>}
+        >
+          {Object.keys(s.prezzi).length === 0 ? (
+            <p className="section-desc" style={{ marginTop: 0 }}>{t('config.prezziEmpty')}</p>
+          ) : (
           <div className="field-list">
-            {Object.entries(s.prezzi).map(([code, row]) => (
-              <div className="field-item" key={code} style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-                <div className="field-row"><span className="field-label-sm">{t('config.prezzoCodice')}</span><input className="field-input-sm" value={code} disabled /></div>
+            {Object.entries(s.prezzi).map(([code, row], idx) => (
+              <div className="field-item" key={idx} style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }}>
+                <div className="field-row"><span className="field-label-sm">{t('config.prezzoCodice')}</span>
+                  <input className="field-input-sm" value={code} onChange={(e) => patchPrezzoCode(idx, e.target.value)} /></div>
                 <div className="field-row"><span className="field-label-sm">{t('config.prezzoPacchetto')}</span>
-                  <input className="field-input-sm" value={row.pacchetto} onChange={(e) => patch({ prezzi: { ...s.prezzi, [code]: { ...row, pacchetto: e.target.value } } })} /></div>
+                  <input className="field-input-sm" value={row.pacchetto} onChange={(e) => patchPrezzoRow(idx, { pacchetto: e.target.value })} /></div>
                 <div className="field-row"><span className="field-label-sm">{t('config.prezzoPremio')}</span>
-                  <input className="field-input-sm" value={row.premio} onChange={(e) => patch({ prezzi: { ...s.prezzi, [code]: { ...row, premio: e.target.value } } })} /></div>
+                  <input className="field-input-sm" value={row.premio} onChange={(e) => patchPrezzoRow(idx, { premio: e.target.value })} /></div>
+                <div className="field-row" style={{ alignItems: 'end', justifyContent: 'end' }}>
+                  <button className="btn-danger" onClick={() => deletePrezzo(idx)}>{t('config.deletePrezzo')}</button></div>
               </div>
             ))}
           </div>
+          )}
         </Panel>
         )}
 
