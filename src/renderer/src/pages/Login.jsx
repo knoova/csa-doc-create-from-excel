@@ -8,8 +8,22 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export default function Login() {
   const { t } = useTranslation()
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState('idle') // idle | sending | sent
+  const [status, setStatus] = useState('idle') // idle | sending | sent | sso
   const [error, setError] = useState('')
+
+  const startSso = async () => {
+    setError('')
+    setStatus('sso')
+    try {
+      const res = await window.electronAPI.startSsoLogin()
+      // La finestra resta in attesa: l'esito arriva via onAuthenticated quando
+      // il browser completa il redirect csadoc://sso. In caso di errore di
+      // apertura, torniamo allo stato iniziale.
+      if (!res?.ok) { setStatus('idle'); setError(t('login.ssoError')) }
+    } catch (_) {
+      setStatus('idle'); setError(t('login.ssoError'))
+    }
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -60,10 +74,23 @@ export default function Login() {
               />
               {error && <span className="field-error-text">{error}</span>}
             </div>
-            <button type="submit" className="btn btn-primary" disabled={status === 'sending'}>
+            <button type="submit" className="btn btn-primary" disabled={status === 'sending' || status === 'sso'}>
               {status === 'sending'
                 ? (<><span className="spinner spinner-sm" /> {t('login.sending')}</>)
                 : t('login.sendButton')}
+            </button>
+
+            <div className="login-divider">{t('login.or')}</div>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={startSso}
+              disabled={status === 'sending' || status === 'sso'}
+            >
+              {status === 'sso'
+                ? (<><span className="spinner spinner-sm" /> {t('login.ssoWaiting')}</>)
+                : t('login.ssoButton')}
             </button>
           </form>
         )}

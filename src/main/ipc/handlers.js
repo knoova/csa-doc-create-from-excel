@@ -2,6 +2,7 @@ import { dialog, shell, app } from 'electron'
 import { join } from 'path'
 import { getSettings, saveSettings, patchSettings, resetFieldDefaults } from '../services/settingsService.js'
 import { domainAllowed, createToken, getSession, clearSession } from '../services/authService.js'
+import { startSsoLogin } from '../services/ssoAuthService.js'
 import { sendMagicLink } from '../services/mailService.js'
 import { loadFlusso } from '../services/flussoService.js'
 import { fillModulo } from '../services/docxService.js'
@@ -62,6 +63,10 @@ export function registerHandlers(ipcMain, getMainWindow) {
       return { ok: false, reason: 'send', error: String(err && err.message || err) }
     }
   })
+
+  // Login con account condiviso (SSO): apre il browser sull'identity provider.
+  // Al termine il redirect csadoc://sso arriva via handleDeepLink (main).
+  ipcMain.handle('auth:startSso', () => startSsoLogin())
 
   ipcMain.handle('auth:getSession', () => getSession())
   ipcMain.handle('auth:logout', () => { clearSession(); return true })

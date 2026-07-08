@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('electronAPI', {
   // ─── Auth / magic link ────────────────────────────────────────────────────
   requestMagicLink: (email) => ipcRenderer.invoke('auth:requestLink', email),
+  startSsoLogin: () => ipcRenderer.invoke('auth:startSso'),
   getSession: () => ipcRenderer.invoke('auth:getSession'),
   logout: () => ipcRenderer.invoke('auth:logout'),
   onAuthenticated: (callback) => {
