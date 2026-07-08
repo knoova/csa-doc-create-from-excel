@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Banner from '../components/Banner.jsx'
 import { isValidExpr } from '../../../main/services/expr.js'
+import { classifyFieldDocx, unmappedPlaceholders } from '../../../main/services/templateScan.js'
 
 const FIELD_TYPES = ['text', 'number', 'date', 'email', 'phone', 'select', 'fixed']
 
@@ -47,6 +48,7 @@ function Panel({ title, desc, actions, children }) {
 
 const CONFIG_TABS = [
   { key: 'preset', labelKey: 'config.sectionPresets' },
+  { key: 'template', labelKey: 'config.sectionTemplate' },
   { key: 'fields', labelKey: 'config.sectionFields' },
   { key: 'prezzi', labelKey: 'config.sectionPrezzi' },
   { key: 'allegati', labelKey: 'config.sectionAllegati' },
@@ -57,8 +59,10 @@ const CONFIG_TABS = [
 ]
 
 /** Riga campo compatta: riassunto sempre visibile, dettagli espandibili. */
-function FieldItem({ f, t, onPatch, onDelete }) {
+function FieldItem({ f, t, onPatch, onDelete, placeholders }) {
   const [open, setOpen] = useState(false)
+  const docxStatus = classifyFieldDocx(f.docx, placeholders)
+  const hasInventory = Array.isArray(placeholders) && placeholders.length > 0
   return (
     <div className="field-item" style={{ gridTemplateColumns: '1fr' }}>
       <button type="button" className="collapse-header field-summary" onClick={() => setOpen(o => !o)} aria-expanded={open}>
@@ -68,6 +72,7 @@ function FieldItem({ f, t, onPatch, onDelete }) {
         <span className="badge badge-neutral">{t(`config.type${f.type.charAt(0).toUpperCase() + f.type.slice(1)}`, f.type)}</span>
         {f.required && <span className="badge badge-info">{t('config.fieldRequired')}</span>}
         {f.enabled === false && <span className="badge badge-error">{t('config.fieldDisabled')}</span>}
+        {docxStatus === 'mismatch' && <span className="badge badge-error">{t('config.docxMismatch')}</span>}
       </button>
       {open && (
         <div className="field-inputs" style={{ marginTop: 8 }}>
@@ -97,9 +102,25 @@ function FieldItem({ f, t, onPatch, onDelete }) {
             <span className="field-label-sm">{t('config.fieldTrack')}</span>
             <input className="field-input-sm" value={f.trackCol || ''} onChange={(e) => onPatch({ trackCol: e.target.value })} />
           </div>
-          <div className="field-row">
+          <div className="field-row" style={{ alignItems: 'start' }}>
             <span className="field-label-sm">{t('config.fieldDocx')}</span>
-            <input className="field-input-sm" value={f.docx || ''} onChange={(e) => onPatch({ docx: e.target.value || null })} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+              <input
+                className="field-input-sm"
+                list={hasInventory ? `ph_${f.id}` : undefined}
+                value={f.docx || ''}
+                onChange={(e) => onPatch({ docx: e.target.value || null })}
+                style={docxStatus === 'mismatch' ? { borderColor: 'var(--c-error)' } : undefined}
+              />
+              {hasInventory && (
+                <datalist id={`ph_${f.id}`}>
+                  {placeholders.map((p) => <option key={p} value={p} />)}
+                </datalist>
+              )}
+              {docxStatus === 'mismatch' && (
+                <span className="mono-sm" style={{ color: 'var(--c-error)' }}>{t('config.docxMismatchHint')}</span>
+              )}
+            </div>
           </div>
           <div className="field-row">
             <span className="field-label-sm">{t('config.fieldMax')}</span>
@@ -206,14 +227,18 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
   const [presetName, setPresetName] = useState('')
   const [banner, setBanner] = useState(null)
   const [tab, setTab] = useState('preset')
+  const [templates, setTemplates] = useState([])
   const dirtyRef = useRef(false)
   dirtyRef.current = dirty
 
   const loadPresets = () => {
     window.electronAPI.listPresets?.().then((p) => { if (p) setPresets(p) }).catch(() => {})
   }
+  const loadTemplates = () => {
+    window.electronAPI.listTemplates?.().then((r) => { if (r?.templates) setTemplates(r.templates) }).catch(() => {})
+  }
 
-  useEffect(() => { window.electronAPI.getSettings().then(setS); loadPresets() }, [])
+  useEffect(() => { window.electronAPI.getSettings().then(setS); loadPresets(); loadTemplates() }, [])
 
   // Al ritorno sulla pagina (e quando i settings cambiano altrove) si ricarica,
   // ma senza sovrascrivere modifiche non ancora salvate.
@@ -221,6 +246,7 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
     if (visible && !dirtyRef.current) {
       window.electronAPI.getSettings().then(setS).catch(() => {})
       loadPresets()
+      loadTemplates()
     }
   }, [visible])
 
@@ -301,6 +327,32 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
     const next = attachments.slice()
     ;[next[idx], next[j]] = [next[j], next[idx]]
     patch({ attachments: next })
+  }
+
+  // ─── Template del modulo ───────────────────────────────────────────────────--
+  const activeTemplate = templates.find((tp) => tp.id === (s.templateId || 'default')) || null
+  const placeholders = activeTemplate?.placeholders || []
+  const selectTemplate = (id) => patch({ templateId: id })
+  const importTemplate = async () => {
+    setBanner(null)
+    const res = await window.electronAPI.importTemplate()
+    if (res?.ok) {
+      if (res.templates) setTemplates(res.templates)
+      if (res.entry?.id) patch({ templateId: res.entry.id })
+      setBanner({ type: 'success', msg: t('config.templateImported', { name: res.entry?.name || '' }) })
+    } else if (res && res.reason !== 'canceled') {
+      setBanner({ type: 'error', msg: res.error || t('common.error') })
+    }
+  }
+  const removeTemplate = async (id) => {
+    if (!window.confirm(t('config.templateConfirmDelete'))) return
+    const res = await window.electronAPI.deleteTemplate(id)
+    if (res?.ok) {
+      if (res.templates) setTemplates(res.templates)
+      if ((s.templateId || 'default') === id) patch({ templateId: 'default' })
+    } else if (res?.error) {
+      setBanner({ type: 'error', msg: res.error })
+    }
   }
 
   const save = async () => {
@@ -445,6 +497,52 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
         </Panel>
         )}
 
+        {/* ─── Template del modulo ─── */}
+        {tab === 'template' && (
+        <Panel
+          title={t('config.sectionTemplate')}
+          desc={t('config.sectionTemplateDesc')}
+          actions={<button className="btn btn-secondary" onClick={importTemplate}>{t('config.templateImport')}</button>}
+        >
+          <div className="field-list">
+            {templates.map((tp) => {
+              const active = (s.templateId || 'default') === tp.id
+              return (
+                <div className="field-item" key={tp.id} style={{ gridTemplateColumns: 'auto 1fr auto' }}>
+                  <input type="radio" name="tplsel" checked={active} onChange={() => selectTemplate(tp.id)} style={{ marginTop: 4 }} />
+                  <div className="flex items-center gap-2" style={{ minWidth: 0, flexWrap: 'wrap' }}>
+                    <strong>{tp.name}</strong>
+                    {tp.builtin && <span className="badge badge-info">{t('config.allegatoBuiltin')}</span>}
+                    {active && <span className="badge badge-success">{t('config.templateActive')}</span>}
+                    <span className="mono-sm text-muted">{t('config.templatePlaceholderCount', { count: (tp.placeholders || []).length })}</span>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    {!tp.builtin && <button className="btn-danger" onClick={() => removeTemplate(tp.id)}>{t('common.delete')}</button>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {activeTemplate && (
+            <div style={{ marginTop: 16 }}>
+              <div className="section-desc" style={{ marginBottom: 6 }}>{t('config.templateInventory')}</div>
+              {placeholders.length === 0 ? (
+                <p className="section-desc" style={{ marginTop: 0 }}>{t('config.templateNoPlaceholders')}</p>
+              ) : (
+                <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                  {placeholders.map((p) => {
+                    const unmapped = unmappedPlaceholders(placeholders, s.fields).includes(p)
+                    return <span key={p} className={`badge ${unmapped ? 'badge-neutral' : 'badge-success'} mono-sm`} title={unmapped ? t('config.templatePlaceholderUnmapped') : t('config.templatePlaceholderMapped')}>{`{{${p}}}`}</span>
+                  })}
+                </div>
+              )}
+              <p className="section-desc" style={{ marginTop: 8, marginBottom: 0 }}>{t('config.templateInventoryHint')}</p>
+            </div>
+          )}
+        </Panel>
+        )}
+
         {/* ─── Campi ─── */}
         {tab === 'fields' && (
         <Panel
@@ -459,7 +557,7 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
         >
           <div className="field-list">
             {s.fields.map((f, idx) => (
-              <FieldItem key={`${f.id}_${idx}`} f={f} t={t} onPatch={(p) => patchField(idx, p)} onDelete={() => deleteField(idx)} />
+              <FieldItem key={`${f.id}_${idx}`} f={f} t={t} placeholders={placeholders} onPatch={(p) => patchField(idx, p)} onDelete={() => deleteField(idx)} />
             ))}
           </div>
         </Panel>

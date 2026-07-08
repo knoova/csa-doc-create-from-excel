@@ -21,6 +21,7 @@ import {
   listPresets, saveCurrentAsPreset, applyPreset, deletePreset, getPresetForExport, importPreset
 } from '../services/configPresets.js'
 import { importAttachmentFile, deleteAttachmentFile } from '../services/attachmentsStore.js'
+import { listTemplates, importTemplateDir, deleteTemplate } from '../services/templatesStore.js'
 import { readFileSync, writeFileSync, statSync } from 'fs'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -325,6 +326,31 @@ export function registerHandlers(ipcMain, getMainWindow) {
 
   // Elimina il file fisico di un allegato caricato (i builtin sono ignorati).
   ipcMain.handle('attachments:deleteFile', (_e, id) => { deleteAttachmentFile(id); return { ok: true } })
+
+  // ─── Libreria template del modulo ──────────────────────────────────────────--
+  ipcMain.handle('templates:list', () => listTemplates())
+
+  // Importa un bundle template da una cartella (page-*.xhtml, css, fonts, images).
+  ipcMain.handle('templates:import', async () => {
+    const win = getMainWindow()
+    const res = await dialog.showOpenDialog(win, {
+      title: 'Seleziona la cartella del template HTML del modulo',
+      properties: ['openDirectory']
+    })
+    if (res.canceled || !res.filePaths[0]) return { ok: false, reason: 'canceled' }
+    try {
+      const dir = res.filePaths[0]
+      const name = dir.replace(/[/\\]+$/, '').replace(/^.*[/\\]/, '')
+      return { ok: true, ...importTemplateDir(dir, name) }
+    } catch (err) {
+      return { ok: false, error: String(err && err.message || err) }
+    }
+  })
+
+  ipcMain.handle('templates:delete', (_e, id) => {
+    try { return { ok: true, ...deleteTemplate(id) } }
+    catch (err) { return { ok: false, error: String(err && err.message || err) } }
+  })
 
   // ─── Preset di configurazione con nome ──────────────────────────────────--
   ipcMain.handle('presets:list', () => listPresets())

@@ -13,23 +13,16 @@
  * Se il render fallisce, invece di bloccare il salvataggio si produce uno ZIP
  * con il .docx e il PDF allegato, così l'operatore ha comunque tutto.
  */
-import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join, basename } from 'path'
-import { tmpdir } from 'os'
-import { app, BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 import PizZip from 'pizzip'
 import { PDFDocument } from 'pdf-lib'
 import { buildDocxData } from './recordMapper.js'
 import { getSettings } from './settingsService.js'
 import { fillAndReflowScript } from './moduloFill.js'
 import { resolveAttachmentPaths, builtinAttachmentPath, defaultAttachments } from './attachmentsStore.js'
-
-function firstExisting(paths) {
-  for (const p of paths) {
-    try { if (p && existsSync(p)) return p } catch (_) {}
-  }
-  return null
-}
+import { templateDir, templatePageFiles, bundledTemplateDir } from './templatesStore.js'
 
 /**
  * Percorsi (ordinati) degli allegati da accodare per una configurazione.
@@ -40,16 +33,9 @@ export function attachmentPathsFor(settings) {
   return resolveAttachmentPaths(list)
 }
 
-/** Cartella del template HTML del modulo (contiene page-1/2.xhtml, css, fonts, images). */
+/** Cartella del template HTML del modulo (predefinito incluso nell'app). */
 export function moduloHtmlDir() {
-  const p = firstExisting([
-    join(process.resourcesPath || '', 'templates', 'modulo_html'),
-    join(app.getAppPath(), 'templates', 'modulo_html'),
-    join(app.getAppPath(), '..', 'templates', 'modulo_html'),
-    join(process.cwd(), 'templates', 'modulo_html')
-  ])
-  if (!p) throw new Error('Template HTML del modulo non trovato (templates/modulo_html)')
-  return p
+  return bundledTemplateDir()
 }
 
 // CSS che mappa il sistema di coordinate del template (595×842 "px", che sono
@@ -78,14 +64,14 @@ async function renderPageToPdf(win, pagePath, data) {
 export async function renderModuloPdf(record, settings) {
   const s = settings || getSettings()
   const data = buildDocxData(record, s.fields, s.prezzi, s.dateOffsetDays)
-  const dir = moduloHtmlDir()
+  const dir = templateDir(s.templateId)
 
   const win = new BrowserWindow({
     show: false,
     webPreferences: { offscreen: true, sandbox: false, javascript: true, images: true }
   })
   try {
-    const pageFiles = ['page-1.xhtml', 'page-2.xhtml'].filter((f) => existsSync(join(dir, f)))
+    const pageFiles = templatePageFiles(dir)
     const buffers = []
     for (const f of pageFiles) {
       buffers.push(await renderPageToPdf(win, join(dir, f), data))

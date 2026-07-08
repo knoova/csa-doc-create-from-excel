@@ -9,6 +9,7 @@ import { app } from 'electron'
 import { DEFAULT_FIELDS, DEFAULT_IDD, DEFAULT_PREZZI } from './tracciato.js'
 import { getEnvConfig } from './envConfig.js'
 import { defaultAttachments } from './attachmentsStore.js'
+import { DEFAULT_TEMPLATE_ID } from './templatesStore.js'
 
 // Versione dello schema settings: usata per le migrazioni dei file già salvati.
 const SETTINGS_VERSION = 2
@@ -28,6 +29,8 @@ function buildDefaults() {
     fields: JSON.parse(JSON.stringify(DEFAULT_FIELDS)),
     idd: JSON.parse(JSON.stringify(DEFAULT_IDD)),
     prezzi: JSON.parse(JSON.stringify(DEFAULT_PREZZI)),
+    // Template HTML del modulo scelto per questa configurazione (predefinito incluso).
+    templateId: DEFAULT_TEMPLATE_ID,
     // Allegati PDF accodati al modulo (ordinati). Default: solo il DIP incluso.
     attachments: defaultAttachments(),
     // Date: le date del modulo riportano la data del flusso così com'è.
@@ -62,6 +65,7 @@ export function getSettings() {
     // Installazioni precedenti senza la chiave `attachments` ricevono il default
     // (il DIP incluso). Un array vuoto salvato di proposito resta vuoto.
     if (!Array.isArray(merged.attachments)) merged.attachments = defaults.attachments
+    if (!merged.templateId) merged.templateId = defaults.templateId
     merged.smtp = { ...defaults.smtp, ...(saved.smtp || {}) }
     merged.ftp = {
       staging: { ...emptyFtpProfile(), ...((saved.ftp || {}).staging || {}) },

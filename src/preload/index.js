@@ -48,6 +48,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ─── Allegati (PDF accodati al modulo) ─────────────────────────────────────--
   addAttachment: () => ipcRenderer.invoke('attachments:add'),
   deleteAttachmentFile: (id) => ipcRenderer.invoke('attachments:deleteFile', id),
+
+  // ─── Libreria template del modulo ──────────────────────────────────────────--
+  listTemplates: () => ipcRenderer.invoke('templates:list'),
+  importTemplate: () => ipcRenderer.invoke('templates:import'),
+  deleteTemplate: (id) => ipcRenderer.invoke('templates:delete', id),
   onSettingsChanged: (callback) => {
     ipcRenderer.on('settings:changed', (_e, settings) => callback(settings))
   },
