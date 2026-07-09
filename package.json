@@ -1,6 +1,6 @@
 {
   "name": "csa-doc-create-from-excel",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "CSA Adesioni — compilazione automatica del Modulo di Adesione dal flusso Excel AXA (by ThinkPink Studio)",
   "author": {
     "name": "ThinkPink Studio",
