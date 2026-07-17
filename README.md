@@ -68,6 +68,23 @@ La **CI** (`.github/workflows/release.yml`) ad ogni push su `main`: incrementa l
 patch in `package.json`, builda su `windows-latest` e pubblica la GitHub Release
 con l'`.exe`.
 
+### Configurazione build via GitHub (Settings → Secrets and variables → Actions)
+
+I valori vengono "bakati" nella build dai **Repository variables/secrets**. Campi
+non sensibili come **Variables**, credenziali come **Secrets**:
+
+| Variables (non sensibili) | Secrets (sensibili) |
+| --- | --- |
+| `FTP_STAGING_PROTOCOL` `FTP_STAGING_HOST` `FTP_STAGING_PORT` `FTP_STAGING_USER` `FTP_STAGING_SECURE` `FTP_STAGING_DIR` | `FTP_STAGING_PASS` `FTP_STAGING_KEY` `FTP_STAGING_PASSPHRASE` |
+| `FTP_PROD_PROTOCOL` `FTP_PROD_HOST` `FTP_PROD_PORT` `FTP_PROD_USER` `FTP_PROD_SECURE` `FTP_PROD_DIR` | `FTP_PROD_PASS` `FTP_PROD_KEY` `FTP_PROD_PASSPHRASE` |
+| `EXPORT_NOTIFY_MODE` (`user`/`shared`/`both`) | `EXPORT_NOTIFY_SHARED` |
+
+`FTP_*_PROTOCOL` = `ftp` | `ftps` | `sftp`. Per **SFTP** imposta `PROTOCOL=sftp`,
+`PORT=22` e incolla il **contenuto della chiave** (`.ppk` o PEM) nel Secret
+`FTP_*_KEY` **così com'è, multiriga — nessun Base64 in CI** — più la passphrase in
+`FTP_*_PASSPHRASE`. Sono tutti facoltativi e comunque **sovrascrivibili** da
+*Configurazioni → FTP* nell'app.
+
 ## Record, scadenze e rinnovi
 
 I record salvati vivono nel **database locale** (pagina *Record*): ricerca per
