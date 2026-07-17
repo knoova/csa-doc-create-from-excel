@@ -34,26 +34,41 @@ function writeStore(store) {
   return store
 }
 
-/** Azzera le password (SMTP/FTP) prima di esporre uno snapshot al di fuori dell'app (export JSON). */
+/** Azzera i segreti di un profilo FTP/SFTP (password, chiave privata, passphrase). */
+function redactFtpProfile(p) {
+  return { ...(p || {}), pass: '', privateKey: '', passphrase: '' }
+}
+
+/** Azzera i segreti (SMTP/FTP/SFTP) prima di esporre uno snapshot al di fuori dell'app (export JSON). */
 function redactSecrets(settings) {
   const s = { ...settings }
   if (s.smtp) s.smtp = { ...s.smtp, pass: '' }
   if (s.ftp) {
     s.ftp = {
-      staging: { ...(s.ftp.staging || {}), pass: '' },
-      prod: { ...(s.ftp.prod || {}), pass: '' }
+      staging: redactFtpProfile(s.ftp.staging),
+      prod: redactFtpProfile(s.ftp.prod)
     }
   }
   return s
 }
 
-/** Se la patch in arrivo non porta una password (preset "ripulito"), mantiene quella attualmente configurata. */
+/** Mantiene un segreto FTP/SFTP corrente se la patch "ripulita" non ne porta uno. */
+function keepFtpSecrets(inc, cur) {
+  return {
+    ...inc,
+    pass: inc?.pass || cur?.pass || '',
+    privateKey: inc?.privateKey || cur?.privateKey || '',
+    passphrase: inc?.passphrase || cur?.passphrase || ''
+  }
+}
+
+/** Se la patch in arrivo non porta i segreti (preset "ripulito"), mantiene quelli attualmente configurati. */
 function keepExistingSecrets(incoming, current) {
   const s = { ...incoming }
   s.smtp = { ...incoming.smtp, pass: incoming.smtp?.pass || current.smtp?.pass || '' }
   s.ftp = {
-    staging: { ...incoming.ftp?.staging, pass: incoming.ftp?.staging?.pass || current.ftp?.staging?.pass || '' },
-    prod: { ...incoming.ftp?.prod, pass: incoming.ftp?.prod?.pass || current.ftp?.prod?.pass || '' }
+    staging: keepFtpSecrets(incoming.ftp?.staging, current.ftp?.staging),
+    prod: keepFtpSecrets(incoming.ftp?.prod, current.ftp?.prod)
   }
   return s
 }

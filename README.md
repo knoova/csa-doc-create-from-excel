@@ -30,19 +30,25 @@ SMTP_PASS=...
 SMTP_FROM=...
 ACCEPTED_DOMAINS=dominio1.it,dominio2.it
 
-# FTP precaricato a build-time (sovrascrivibile in app)
+# FTP/SFTP precaricato a build-time (sovrascrivibile in app)
+# PROTOCOL: ftp | ftps | sftp  (se omesso, SECURE=true → ftps, altrimenti ftp)
+FTP_STAGING_PROTOCOL=ftp
 FTP_STAGING_HOST=...
 FTP_STAGING_PORT=21
 FTP_STAGING_USER=...
 FTP_STAGING_PASS=...
 FTP_STAGING_SECURE=false
 FTP_STAGING_DIR=/public_html/export
+FTP_PROD_PROTOCOL=sftp
 FTP_PROD_HOST=...
-FTP_PROD_PORT=21
+FTP_PROD_PORT=22
 FTP_PROD_USER=...
 FTP_PROD_PASS=...
-FTP_PROD_SECURE=false
-FTP_PROD_DIR=/public_html/export
+FTP_PROD_DIR=/upload
+# SFTP con chiave: chiave privata (OpenSSH PEM o PuTTY .ppk) in Base64 + passphrase.
+# In .env.local usa Base64 (una riga): base64 -w0 chiave.ppk
+FTP_PROD_KEY=<chiave-in-base64>
+FTP_PROD_PASSPHRASE=...
 
 # Riepiloghi esportazione (opzionale): mailbox condivisa di override
 EXPORT_NOTIFY_SHARED=esportazioni@azienda.it
@@ -74,12 +80,15 @@ scorso / corrente / prossimo**.
 
 ## FTP staging / produzione
 
-In *Configurazioni → FTP* si salvano i dati di connessione (host, porta,
-utente, password, cartella remota, FTPS) per **staging** e **produzione**, con
-test di connessione. I profili possono essere **precaricati a build-time** dalle
-env var `FTP_STAGING_*` / `FTP_PROD_*` (GitHub Secrets in CI) e restano comunque
-**sovrascrivibili** dall'app. Dopo un'esportazione, dalla pagina *Record* si può
-caricare il file sul server con un click (upload tracciato nel Registro).
+In *Configurazioni → FTP* si salvano i dati di connessione per **staging** e
+**produzione**, con test di connessione. Ogni profilo supporta tre protocolli:
+**FTP**, **FTPS** (FTP su TLS) e **SFTP** (SSH). Per SFTP l'autenticazione può
+avvenire con **chiave privata** (formato OpenSSH PEM o PuTTY **`.ppk`**, anche
+cifrata con passphrase) oppure con password. I profili possono essere
+**precaricati a build-time** dalle env var `FTP_STAGING_*` / `FTP_PROD_*`
+(GitHub Secrets in CI) e restano comunque **sovrascrivibili** dall'app. Dopo
+un'esportazione, dalla pagina *Record* si può caricare il file sul server con un
+click (upload tracciato nel Registro).
 
 ## Esportazione del singolo record e notifiche email
 

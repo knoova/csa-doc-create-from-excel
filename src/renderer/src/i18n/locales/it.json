@@ -216,7 +216,16 @@
     "notifyModeBoth": "Utente + mailbox condivisa",
     "notifyShared": "Mailbox condivisa",
     "notifySharedPlaceholder": "esportazioni@azienda.it",
-    "notifyHint": "Il riepilogo con il foglio XLS in allegato viene inviato all’utente collegato (il suo username). Imposta una mailbox condivisa e scegli l’override per inviarlo lì."
+    "notifyHint": "Il riepilogo con il foglio XLS in allegato viene inviato all’utente collegato (il suo username). Imposta una mailbox condivisa e scegli l’override per inviarlo lì.",
+    "ftpProtocol": "Protocollo",
+    "ftpProtocol_ftp": "FTP",
+    "ftpProtocol_ftps": "FTPS (FTP su TLS)",
+    "ftpProtocol_sftp": "SFTP (SSH)",
+    "ftpPassSftp": "Password (se senza chiave)",
+    "ftpPrivateKey": "Chiave privata SSH (PEM o .ppk)",
+    "ftpPrivateKeyPlaceholder": "Incolla qui il contenuto della chiave (-----BEGIN … oppure PuTTY-User-Key-File-…)",
+    "ftpPassphrase": "Passphrase della chiave",
+    "ftpKeyHint": "Per SFTP puoi autenticarti con la chiave privata (formato OpenSSH o PuTTY .ppk) e la relativa passphrase, oppure con la password. La chiave si può anche precaricare a build-time (env)."
   },
   "registro": {
     "title": "Registro attività",

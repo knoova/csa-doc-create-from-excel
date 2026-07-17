@@ -52,17 +52,46 @@ function bakedEnv() {
   try { return (typeof __APP_ENV__ !== 'undefined' && __APP_ENV__) ? __APP_ENV__ : {} } catch (_) { return {} }
 }
 
-// Costruisce un profilo FTP dai valori d'ambiente per il prefisso indicato
+// Normalizza il materiale della chiave privata SSH proveniente da env. Poiché
+// `.env.local` è parsato riga-per-riga (niente multilinea), la chiave in env va
+// fornita in Base64; se invece arriva già in chiaro (PEM/PPK, es. da GitHub
+// Secrets multilinea) la si usa così com'è, ripristinando eventuali "\n".
+function decodeKeyMaterial(val) {
+  const s = String(val || '')
+  if (!s.trim()) return ''
+  if (/-----BEGIN|PuTTY-User-Key-File/.test(s)) return s.replace(/\\n/g, '\n')
+  try {
+    const dec = Buffer.from(s, 'base64').toString('utf-8')
+    return /-----BEGIN|PuTTY-User-Key-File/.test(dec) ? dec : s
+  } catch (_) {
+    return s
+  }
+}
+
+// Protocollo del profilo: 'ftp' | 'ftps' | 'sftp'. Retrocompat: se non indicato
+// si deduce da *_SECURE (true → ftps).
+function protocolFromEnv(env, prefix) {
+  const p = String(env[`${prefix}_PROTOCOL`] || '').trim().toLowerCase()
+  if (['ftp', 'ftps', 'sftp'].includes(p)) return p
+  return String(env[`${prefix}_SECURE`] || 'false').toLowerCase() === 'true' ? 'ftps' : 'ftp'
+}
+
+// Costruisce un profilo FTP/SFTP dai valori d'ambiente per il prefisso indicato
 // (es. FTP_STAGING_* / FTP_PROD_*). Valori vuoti → profilo "vuoto" ma
 // comunque sovrascrivibile da Configurazioni.
 function ftpProfileFromEnv(env, prefix) {
+  const protocol = protocolFromEnv(env, prefix)
   return {
+    protocol,
     host: env[`${prefix}_HOST`] || '',
-    port: env[`${prefix}_PORT`] ? parseInt(env[`${prefix}_PORT`], 10) : 21,
+    port: env[`${prefix}_PORT`] ? parseInt(env[`${prefix}_PORT`], 10) : (protocol === 'sftp' ? 22 : 21),
     user: env[`${prefix}_USER`] || '',
     pass: env[`${prefix}_PASS`] || '',
-    secure: String(env[`${prefix}_SECURE`] || 'false').toLowerCase() === 'true',
-    dir: env[`${prefix}_DIR`] || ''
+    secure: protocol === 'ftps',
+    dir: env[`${prefix}_DIR`] || '',
+    // Autenticazione a chiave per SFTP (opzionale: si può usare anche user/pass).
+    privateKey: decodeKeyMaterial(env[`${prefix}_KEY`]),
+    passphrase: env[`${prefix}_PASSPHRASE`] || ''
   }
 }
 

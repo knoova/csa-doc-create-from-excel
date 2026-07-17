@@ -15,7 +15,11 @@ import { DEFAULT_TEMPLATE_ID } from './templatesStore.js'
 const SETTINGS_VERSION = 2
 
 function emptyFtpProfile() {
-  return { host: '', port: 21, user: '', pass: '', secure: false, dir: '' }
+  return {
+    protocol: 'ftp', host: '', port: 21, user: '', pass: '', secure: false, dir: '',
+    // Autenticazione a chiave per SFTP (usata solo con protocol 'sftp').
+    privateKey: '', passphrase: ''
+  }
 }
 
 // Profilo FTP di default: parte dal profilo vuoto e vi sovrappone i valori

@@ -216,7 +216,16 @@
     "notifyModeBoth": "User + shared mailbox",
     "notifyShared": "Shared mailbox",
     "notifySharedPlaceholder": "exports@company.com",
-    "notifyHint": "The summary with the XLS attached is sent to the logged-in user (their username). Set a shared mailbox and pick the override to send it there."
+    "notifyHint": "The summary with the XLS attached is sent to the logged-in user (their username). Set a shared mailbox and pick the override to send it there.",
+    "ftpProtocol": "Protocol",
+    "ftpProtocol_ftp": "FTP",
+    "ftpProtocol_ftps": "FTPS (FTP over TLS)",
+    "ftpProtocol_sftp": "SFTP (SSH)",
+    "ftpPassSftp": "Password (if no key)",
+    "ftpPrivateKey": "SSH private key (PEM or .ppk)",
+    "ftpPrivateKeyPlaceholder": "Paste the key contents here (-----BEGIN … or PuTTY-User-Key-File-…)",
+    "ftpPassphrase": "Key passphrase",
+    "ftpKeyHint": "For SFTP you can authenticate with the private key (OpenSSH or PuTTY .ppk format) and its passphrase, or with the password. The key can also be preloaded at build-time (env)."
   },
   "registro": {
     "title": "Activity log",

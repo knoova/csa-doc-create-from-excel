@@ -176,6 +176,22 @@ function FtpProfile({ env, profile, t, onPatch }) {
     }
   }
 
+  // Protocollo effettivo (retrocompat: secure → ftps).
+  const protocol = ['ftp', 'ftps', 'sftp'].includes(profile?.protocol)
+    ? profile.protocol
+    : (profile?.secure ? 'ftps' : 'ftp')
+  const isSftp = protocol === 'sftp'
+
+  // Al cambio protocollo allinea `secure` e la porta di default se lasciata al
+  // valore standard dell'altro protocollo.
+  const changeProtocol = (next) => {
+    const patch = { protocol: next, secure: next === 'ftps' }
+    const curPort = Number(profile?.port)
+    if (next === 'sftp' && (!curPort || curPort === 21)) patch.port = 22
+    if (next !== 'sftp' && curPort === 22) patch.port = 21
+    onPatch(patch)
+  }
+
   return (
     <div className="ftp-profile">
       <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
@@ -187,32 +203,55 @@ function FtpProfile({ env, profile, t, onPatch }) {
       {result && <Banner type={result.type} style={{ marginBottom: 8 }}>{result.msg}</Banner>}
       <div className="maschera-grid">
         <div className="form-group">
-          <label className="form-label">{t('config.ftpHost')}</label>
-          <input className="form-input" value={profile?.host || ''} onChange={(e) => onPatch({ host: e.target.value })} />
+          <label className="form-label">{t('config.ftpProtocol')}</label>
+          <select className="form-input" value={protocol} onChange={(e) => changeProtocol(e.target.value)}>
+            <option value="ftp">{t('config.ftpProtocol_ftp')}</option>
+            <option value="ftps">{t('config.ftpProtocol_ftps')}</option>
+            <option value="sftp">{t('config.ftpProtocol_sftp')}</option>
+          </select>
         </div>
         <div className="form-group">
           <label className="form-label">{t('config.ftpPort')}</label>
-          <input className="form-input" type="number" value={profile?.port ?? 21} onChange={(e) => onPatch({ port: parseInt(e.target.value || '21', 10) })} />
+          <input className="form-input" type="number" value={profile?.port ?? (isSftp ? 22 : 21)} onChange={(e) => onPatch({ port: parseInt(e.target.value || (isSftp ? '22' : '21'), 10) })} />
+        </div>
+        <div className="form-group span-2">
+          <label className="form-label">{t('config.ftpHost')}</label>
+          <input className="form-input" value={profile?.host || ''} onChange={(e) => onPatch({ host: e.target.value })} />
         </div>
         <div className="form-group">
           <label className="form-label">{t('config.ftpUser')}</label>
           <input className="form-input" value={profile?.user || ''} onChange={(e) => onPatch({ user: e.target.value })} />
         </div>
         <div className="form-group">
-          <label className="form-label">{t('config.ftpPass')}</label>
+          <label className="form-label">{isSftp ? t('config.ftpPassSftp') : t('config.ftpPass')}</label>
           <input className="form-input" type="password" value={profile?.pass || ''} onChange={(e) => onPatch({ pass: e.target.value })} />
         </div>
-        <div className="form-group">
+        <div className="form-group span-2">
           <label className="form-label">{t('config.ftpDir')}</label>
           <input className="form-input" value={profile?.dir || ''} placeholder="/public_html/export" onChange={(e) => onPatch({ dir: e.target.value })} />
         </div>
-        <div className="form-group">
-          <label className="toggle" style={{ marginTop: 24 }}>
-            <input type="checkbox" checked={profile?.secure || false} onChange={(e) => onPatch({ secure: e.target.checked })} />
-            <span className="toggle-track"><span className="toggle-thumb" /></span>
-            <span className="toggle-label">{t('config.ftpSecure')}</span>
-          </label>
-        </div>
+        {isSftp && (
+          <>
+            <div className="form-group span-2">
+              <label className="form-label">{t('config.ftpPrivateKey')}</label>
+              <textarea
+                className="form-textarea"
+                rows={4}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                placeholder={t('config.ftpPrivateKeyPlaceholder')}
+                value={profile?.privateKey || ''}
+                onChange={(e) => onPatch({ privateKey: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('config.ftpPassphrase')}</label>
+              <input className="form-input" type="password" value={profile?.passphrase || ''} onChange={(e) => onPatch({ passphrase: e.target.value })} />
+            </div>
+            <div className="form-group span-2">
+              <span className="section-desc" style={{ margin: 0 }}>{t('config.ftpKeyHint')}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
