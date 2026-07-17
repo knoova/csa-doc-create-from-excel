@@ -99,26 +99,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-win
-          path: |
-            dist/*.exe
-            dist/*.yml
-            dist/*.blockmap
-          if-no-files-found: warn
-
-  release:
-    needs: [bump, build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist-all
-          merge-multiple: true
-
+      # Gli asset vengono allegati direttamente alla GitHub Release invece di
+      # passare per gli artifact di Actions (che consumano la quota di storage,
+      # ormai esaurita). La release e' l'unica fonte usata dal release-distributor.
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -131,5 +114,10 @@ jobs:
             | Piattaforma | File |
             |-------------|------|
             | Windows     | `.exe` (installer NSIS x64) |
-          files: dist-all/*
+          files: |
+            dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
           fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
