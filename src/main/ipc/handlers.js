@@ -3,7 +3,7 @@ import { join } from 'path'
 import { getSettings, saveSettings, patchSettings, resetFieldDefaults } from '../services/settingsService.js'
 import { domainAllowed, createToken, getSession, clearSession } from '../services/authService.js'
 import { startSsoLogin } from '../services/ssoAuthService.js'
-import { sendMagicLink } from '../services/mailService.js'
+import { sendMagicLink, sendExportSummary, resolveNotifyRecipients } from '../services/mailService.js'
 import { loadFlusso } from '../services/flussoService.js'
 import { fillModulo } from '../services/docxService.js'
 import { buildFinalPdf } from '../services/pdfService.js'
@@ -39,6 +39,19 @@ function aaaammgg(dateStr) {
   if (m) return `${m[3]}${m[2]}${m[1]}`
   const d = new Date()
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Invia (best-effort) il riepilogo email dell'operazione al destinatario
+// risolto da exportNotify. Non solleva mai: ritorna l'esito per il renderer.
+async function notify(user, payload) {
+  const recipients = resolveNotifyRecipients(user)
+  if (!recipients) return { sent: false, reason: 'disabled' }
+  try {
+    await sendExportSummary({ ...recipients, ...payload, user })
+    return { sent: true, to: recipients.to, cc: recipients.cc || null }
+  } catch (err) {
+    return { sent: false, error: String(err && err.message || err) }
+  }
 }
 
 function recInfoOf(record) {
@@ -215,7 +228,13 @@ export function registerHandlers(ipcMain, getMainWindow) {
         record: { count: selected.length, batch: batchId },
         files: [filePath], result: 'ok'
       })
-      return { ok: true, file: filePath, count: selected.length, archived: !!archive, appended: !!append }
+      const notified = await notify(user, {
+        kind: append ? 'export-append' : 'export', filePath, count: selected.length
+      })
+      return {
+        ok: true, file: filePath, count: selected.length,
+        archived: !!archive, appended: !!append, notify: notified
+      }
     } catch (err) {
       const msg = String(err && err.message || err)
       logAction({ user, action: append ? 'export-append' : 'export', record: null, files: [], result: 'error', error: msg })
@@ -275,7 +294,10 @@ export function registerHandlers(ipcMain, getMainWindow) {
         record: { env, remote: res.remotePath },
         files: [filePath], result: 'ok'
       })
-      return { ok: true, remotePath: res.remotePath }
+      const notified = await notify(user, {
+        kind: 'ftp-upload', filePath, env, remotePath: res.remotePath
+      })
+      return { ok: true, remotePath: res.remotePath, notify: notified }
     } catch (err) {
       const msg = String(err && err.message || err)
       logAction({ user, action: 'ftp-upload', record: { env }, files: [filePath], result: 'error', error: msg })

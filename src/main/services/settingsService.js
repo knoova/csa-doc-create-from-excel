@@ -15,7 +15,25 @@ import { DEFAULT_TEMPLATE_ID } from './templatesStore.js'
 const SETTINGS_VERSION = 2
 
 function emptyFtpProfile() {
-  return { host: '', port: 21, user: '', pass: '', secure: false, dir: '' }
+  return {
+    protocol: 'ftp', host: '', port: 21, user: '', pass: '', secure: false, dir: '',
+    // Autenticazione a chiave per SFTP (usata solo con protocol 'sftp').
+    privateKey: '', passphrase: ''
+  }
+}
+
+// Profilo FTP di default: parte dal profilo vuoto e vi sovrappone i valori
+// precaricati a build-time (env). Restano comunque modificabili in app.
+function defaultFtpProfile(env, key) {
+  return { ...emptyFtpProfile(), ...((env.ftp || {})[key] || {}) }
+}
+
+// Default delle notifiche di esportazione: il riepilogo va sempre all'utente
+// collegato; una mailbox condivisa (env o Configurazioni) può fare da override.
+function defaultExportNotify(env) {
+  const en = env.exportNotify || {}
+  const mode = ['user', 'shared', 'both'].includes(en.mode) ? en.mode : 'user'
+  return { enabled: true, sharedEmail: en.sharedEmail || '', mode }
 }
 
 function buildDefaults() {
@@ -40,8 +58,10 @@ function buildDefaults() {
     acceptedDomains: env.acceptedDomains,
     sessionHours: 24,
     smtp: { ...env.smtp },
-    // FTP di pubblicazione (staging e produzione)
-    ftp: { staging: emptyFtpProfile(), prod: emptyFtpProfile() },
+    // FTP di pubblicazione (staging e produzione), precaricati da env.
+    ftp: { staging: defaultFtpProfile(env, 'staging'), prod: defaultFtpProfile(env, 'prod') },
+    // Notifiche email di riepilogo su esportazione/upload FTP.
+    exportNotify: defaultExportNotify(env),
     // Ultima cartella di output usata
     lastOutputDir: ''
   }
@@ -67,10 +87,12 @@ export function getSettings() {
     if (!Array.isArray(merged.attachments)) merged.attachments = defaults.attachments
     if (!merged.templateId) merged.templateId = defaults.templateId
     merged.smtp = { ...defaults.smtp, ...(saved.smtp || {}) }
+    // I valori salvati sovrascrivono i default precaricati da env (override).
     merged.ftp = {
-      staging: { ...emptyFtpProfile(), ...((saved.ftp || {}).staging || {}) },
-      prod: { ...emptyFtpProfile(), ...((saved.ftp || {}).prod || {}) }
+      staging: { ...defaults.ftp.staging, ...((saved.ftp || {}).staging || {}) },
+      prod: { ...defaults.ftp.prod, ...((saved.ftp || {}).prod || {}) }
     }
+    merged.exportNotify = { ...defaults.exportNotify, ...(saved.exportNotify || {}) }
     if (!Array.isArray(merged.acceptedDomains) || merged.acceptedDomains.length === 0) {
       merged.acceptedDomains = defaults.acceptedDomains
     }

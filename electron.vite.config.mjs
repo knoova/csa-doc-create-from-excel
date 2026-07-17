@@ -18,7 +18,29 @@ const buildEnv = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || '',
   SMTP_FROM: process.env.SMTP_FROM || '',
-  ACCEPTED_DOMAINS: process.env.ACCEPTED_DOMAINS || ''
+  ACCEPTED_DOMAINS: process.env.ACCEPTED_DOMAINS || '',
+  // FTP/SFTP staging/prod precaricati nella build (sovrascrivibili in Configurazioni).
+  FTP_STAGING_PROTOCOL: process.env.FTP_STAGING_PROTOCOL || '',
+  FTP_STAGING_HOST: process.env.FTP_STAGING_HOST || '',
+  FTP_STAGING_PORT: process.env.FTP_STAGING_PORT || '',
+  FTP_STAGING_USER: process.env.FTP_STAGING_USER || '',
+  FTP_STAGING_PASS: process.env.FTP_STAGING_PASS || '',
+  FTP_STAGING_SECURE: process.env.FTP_STAGING_SECURE || '',
+  FTP_STAGING_DIR: process.env.FTP_STAGING_DIR || '',
+  FTP_STAGING_KEY: process.env.FTP_STAGING_KEY || '',
+  FTP_STAGING_PASSPHRASE: process.env.FTP_STAGING_PASSPHRASE || '',
+  FTP_PROD_PROTOCOL: process.env.FTP_PROD_PROTOCOL || '',
+  FTP_PROD_HOST: process.env.FTP_PROD_HOST || '',
+  FTP_PROD_PORT: process.env.FTP_PROD_PORT || '',
+  FTP_PROD_USER: process.env.FTP_PROD_USER || '',
+  FTP_PROD_PASS: process.env.FTP_PROD_PASS || '',
+  FTP_PROD_SECURE: process.env.FTP_PROD_SECURE || '',
+  FTP_PROD_DIR: process.env.FTP_PROD_DIR || '',
+  FTP_PROD_KEY: process.env.FTP_PROD_KEY || '',
+  FTP_PROD_PASSPHRASE: process.env.FTP_PROD_PASSPHRASE || '',
+  // Mailbox condivisa opzionale per i riepiloghi (override lato deployment).
+  EXPORT_NOTIFY_SHARED: process.env.EXPORT_NOTIFY_SHARED || '',
+  EXPORT_NOTIFY_MODE: process.env.EXPORT_NOTIFY_MODE || ''
 }
 
 export default defineConfig({

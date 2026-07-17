@@ -79,12 +79,20 @@ export default function Record({ visible }) {
 
   const toggleSel = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }))
 
+  // Nota da appendere al banner sull'esito della mail di riepilogo.
+  const notifyNote = (n) => {
+    if (!n || n.sent === undefined) return ''
+    if (n.sent) return ` ${t('record.mailSent', { to: n.to })}`
+    if (n.reason === 'disabled') return ''
+    return ` ${t('record.mailFailed')}`
+  }
+
   const runExport = async (opts, okMsgKey) => {
     setBusy(true); setBanner(null)
     try {
       const res = await window.electronAPI.exportRecords(opts)
       if (res?.ok) {
-        setBanner({ type: 'success', msg: t(okMsgKey, { count: res.count }) })
+        setBanner({ type: 'success', msg: t(okMsgKey, { count: res.count }) + notifyNote(res.notify) })
         setLastExport(res.file)
         setSelected({})
         load()
@@ -112,6 +120,14 @@ export default function Record({ visible }) {
   const reexport = () => {
     if (selectedIds.length === 0) { setBanner({ type: 'error', msg: t('record.selectToReexport') }); return }
     runExport({ ids: selectedIds, archive: false }, 'record.reexportedBody')
+  }
+
+  // Esporta un singolo record (da dettaglio o dalla colonna azioni). Funziona
+  // anche sui record già archiviati (ri-esportazione, nessun cambio di stato);
+  // se è ancora «da esportare» viene archiviato come nell'export normale.
+  const exportOne = (r) => {
+    if (!r) return
+    runExport({ ids: [r.id], archive: r.status === 'pending' }, 'record.exportedOneBody')
   }
 
   const renew = async (ids) => {
@@ -143,7 +159,7 @@ export default function Record({ visible }) {
     setFtpBusy(env); setFtpPct(0); setBanner(null)
     try {
       const res = await window.electronAPI.ftpUpload(env, lastExport)
-      if (res?.ok) setBanner({ type: 'success', msg: t('record.ftpUploaded', { env, path: res.remotePath }) })
+      if (res?.ok) setBanner({ type: 'success', msg: t('record.ftpUploaded', { env, path: res.remotePath }) + notifyNote(res.notify) })
       else setBanner({ type: 'error', msg: res?.error || t('common.error') })
     } catch (e) {
       setBanner({ type: 'error', msg: String(e?.message || e) })
@@ -242,6 +258,9 @@ export default function Record({ visible }) {
                   </button>
                 </>
               )}
+              <button className="btn btn-secondary" onClick={() => exportOne(detailRecord)} disabled={busy || !detailRecord}>
+                {t('record.exportOne')}
+              </button>
               <button className="btn btn-secondary" onClick={() => renew([detail.id])} disabled={busy}>
                 {t('record.renewOne')}
               </button>
@@ -353,6 +372,7 @@ export default function Record({ visible }) {
                   <th>{t('record.colMovimento')}</th>
                   <th>{t('record.colStatus')}</th>
                   <th>{t('record.colSaved')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('record.colActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -377,6 +397,16 @@ export default function Record({ visible }) {
                       <td>{d.tipo_movimento || '—'}</td>
                       <td>{statusBadge(r.status)}</td>
                       <td className="mono-sm">{fmt(r.savedAt)}</td>
+                      <td className="col-actions" onClick={(e) => e.stopPropagation()}>
+                        <div className="table-actions">
+                          <button className="btn btn-ghost btn-xs" onClick={() => exportOne(r)} disabled={busy}>
+                            {t('record.exportOne')}
+                          </button>
+                          <button className="btn btn-ghost btn-xs" onClick={() => renew([r.id])} disabled={busy}>
+                            {t('record.renewOne')}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}

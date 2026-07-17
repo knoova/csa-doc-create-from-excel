@@ -207,7 +207,25 @@
     "save": "Salva configurazioni",
     "saved": "Configurazioni salvate!",
     "resetDefaults": "Ripristina valori predefiniti",
-    "confirmReset": "Ripristinare la configurazione predefinita dei campi?"
+    "confirmReset": "Ripristinare la configurazione predefinita dei campi?",
+    "notifyHeading": "Notifiche esportazione",
+    "notifyEnabled": "Invia email di riepilogo su esportazione e upload FTP",
+    "notifyRecipient": "Destinatario",
+    "notifyModeUser": "Utente collegato",
+    "notifyModeShared": "Mailbox condivisa (override)",
+    "notifyModeBoth": "Utente + mailbox condivisa",
+    "notifyShared": "Mailbox condivisa",
+    "notifySharedPlaceholder": "esportazioni@azienda.it",
+    "notifyHint": "Il riepilogo con il foglio XLS in allegato viene inviato all’utente collegato (il suo username). Imposta una mailbox condivisa e scegli l’override per inviarlo lì.",
+    "ftpProtocol": "Protocollo",
+    "ftpProtocol_ftp": "FTP",
+    "ftpProtocol_ftps": "FTPS (FTP su TLS)",
+    "ftpProtocol_sftp": "SFTP (SSH)",
+    "ftpPassSftp": "Password (se senza chiave)",
+    "ftpPrivateKey": "Chiave privata SSH (PEM o .ppk)",
+    "ftpPrivateKeyPlaceholder": "Incolla qui il contenuto della chiave (-----BEGIN … oppure PuTTY-User-Key-File-…)",
+    "ftpPassphrase": "Passphrase della chiave",
+    "ftpKeyHint": "Per SFTP puoi autenticarti con la chiave privata (formato OpenSSH o PuTTY .ppk) e la relativa passphrase, oppure con la password. La chiave si può anche precaricare a build-time (env)."
   },
   "registro": {
     "title": "Registro attività",
@@ -276,7 +294,12 @@
     "ftpPrompt": "Carica «{{file}}» sul server:",
     "ftpUpload_staging": "Carica su FTP staging",
     "ftpUpload_prod": "Carica su FTP produzione",
-    "ftpUploaded": "File caricato su {{env}}: {{path}}"
+    "ftpUploaded": "File caricato su {{env}}: {{path}}",
+    "exportOne": "Esporta",
+    "exportedOneBody": "{{count}} record esportato.",
+    "colActions": "Azioni",
+    "mailSent": "· Riepilogo inviato a {{to}}.",
+    "mailFailed": "· Email di riepilogo non inviata (controlla l’SMTP)."
   },
   "scadenze": {
     "title": "Scadenze",

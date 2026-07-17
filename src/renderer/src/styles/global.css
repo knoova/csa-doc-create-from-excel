@@ -1602,6 +1602,11 @@ a.contact-info:hover { opacity: 0.8; }
 .log-table tbody tr:hover td { background: var(--c-bg-hover); }
 .mono-sm { font-family: var(--font-mono); font-size: 11.5px; }
 
+/* Colonna azioni in fondo alle tabelle: bottoni compatti su una riga */
+.btn-xs { padding: 4px 10px; font-size: 12px; }
+.table-actions { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; }
+.log-table td.col-actions { white-space: nowrap; text-align: right; }
+
 /* ─── Sezioni collassabili (Configurazioni) ─────────────────── */
 .collapse-header {
   display: flex; align-items: center; gap: 10px; width: 100%;

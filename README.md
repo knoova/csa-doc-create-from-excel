@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Crea un file `.env.local` (non committato) con SMTP e domini autorizzati:
+Crea un file `.env.local` (non committato) con SMTP, domini autorizzati e (opzionale) i profili FTP:
 
 ```
 SMTP_HOST=...
@@ -29,9 +29,33 @@ SMTP_USER=...
 SMTP_PASS=...
 SMTP_FROM=...
 ACCEPTED_DOMAINS=dominio1.it,dominio2.it
+
+# FTP/SFTP precaricato a build-time (sovrascrivibile in app)
+# PROTOCOL: ftp | ftps | sftp  (se omesso, SECURE=true → ftps, altrimenti ftp)
+FTP_STAGING_PROTOCOL=ftp
+FTP_STAGING_HOST=...
+FTP_STAGING_PORT=21
+FTP_STAGING_USER=...
+FTP_STAGING_PASS=...
+FTP_STAGING_SECURE=false
+FTP_STAGING_DIR=/public_html/export
+FTP_PROD_PROTOCOL=sftp
+FTP_PROD_HOST=...
+FTP_PROD_PORT=22
+FTP_PROD_USER=...
+FTP_PROD_PASS=...
+FTP_PROD_DIR=/upload
+# SFTP con chiave: chiave privata (OpenSSH PEM o PuTTY .ppk) in Base64 + passphrase.
+# In .env.local usa Base64 (una riga): base64 -w0 chiave.ppk
+FTP_PROD_KEY=<chiave-in-base64>
+FTP_PROD_PASSPHRASE=...
+
+# Riepiloghi esportazione (opzionale): mailbox condivisa di override
+EXPORT_NOTIFY_SHARED=esportazioni@azienda.it
+EXPORT_NOTIFY_MODE=user   # user | shared | both
 ```
 
-In produzione gli stessi parametri sono modificabili da **Configurazioni → Accesso e SMTP**.
+In produzione gli stessi parametri sono modificabili da **Configurazioni → Accesso e SMTP** e **Configurazioni → FTP**. I valori `.env.local`/build fanno solo da **default precaricati**: qualsiasi modifica salvata in app li sovrascrive.
 
 ## Build (Windows)
 
@@ -43,6 +67,23 @@ npx electron-builder --win          # installer NSIS x64 in dist/
 La **CI** (`.github/workflows/release.yml`) ad ogni push su `main`: incrementa la
 patch in `package.json`, builda su `windows-latest` e pubblica la GitHub Release
 con l'`.exe`.
+
+### Configurazione build via GitHub (Settings → Secrets and variables → Actions)
+
+I valori vengono "bakati" nella build dai **Repository variables/secrets**. Campi
+non sensibili come **Variables**, credenziali come **Secrets**:
+
+| Variables (non sensibili) | Secrets (sensibili) |
+| --- | --- |
+| `FTP_STAGING_PROTOCOL` `FTP_STAGING_HOST` `FTP_STAGING_PORT` `FTP_STAGING_USER` `FTP_STAGING_SECURE` `FTP_STAGING_DIR` | `FTP_STAGING_PASS` `FTP_STAGING_KEY` `FTP_STAGING_PASSPHRASE` |
+| `FTP_PROD_PROTOCOL` `FTP_PROD_HOST` `FTP_PROD_PORT` `FTP_PROD_USER` `FTP_PROD_SECURE` `FTP_PROD_DIR` | `FTP_PROD_PASS` `FTP_PROD_KEY` `FTP_PROD_PASSPHRASE` |
+| `EXPORT_NOTIFY_MODE` (`user`/`shared`/`both`) | `EXPORT_NOTIFY_SHARED` |
+
+`FTP_*_PROTOCOL` = `ftp` | `ftps` | `sftp`. Per **SFTP** imposta `PROTOCOL=sftp`,
+`PORT=22` e incolla il **contenuto della chiave** (`.ppk` o PEM) nel Secret
+`FTP_*_KEY` **così com'è, multiriga — nessun Base64 in CI** — più la passphrase in
+`FTP_*_PASSPHRASE`. Sono tutti facoltativi e comunque **sovrascrivibili** da
+*Configurazioni → FTP* nell'app.
 
 ## Record, scadenze e rinnovi
 
@@ -56,10 +97,27 @@ scorso / corrente / prossimo**.
 
 ## FTP staging / produzione
 
-In *Configurazioni → FTP* si salvano i dati di connessione (host, porta,
-utente, password, cartella remota, FTPS) per **staging** e **produzione**, con
-test di connessione. Dopo un'esportazione, dalla pagina *Record* si può
-caricare il file sul server con un click (upload tracciato nel Registro).
+In *Configurazioni → FTP* si salvano i dati di connessione per **staging** e
+**produzione**, con test di connessione. Ogni profilo supporta tre protocolli:
+**FTP**, **FTPS** (FTP su TLS) e **SFTP** (SSH). Per SFTP l'autenticazione può
+avvenire con **chiave privata** (formato OpenSSH PEM o PuTTY **`.ppk`**, anche
+cifrata con passphrase) oppure con password. I profili possono essere
+**precaricati a build-time** dalle env var `FTP_STAGING_*` / `FTP_PROD_*`
+(GitHub Secrets in CI) e restano comunque **sovrascrivibili** dall'app. Dopo
+un'esportazione, dalla pagina *Record* si può caricare il file sul server con un
+click (upload tracciato nel Registro).
+
+## Esportazione del singolo record e notifiche email
+
+Ogni record può essere esportato **singolarmente** dalla **colonna Azioni** in
+fondo alla tabella *Record* o dal pulsante **Esporta** nella maschera di
+dettaglio — anche se **già archiviato** (ri-esportazione senza cambio di stato).
+
+A ogni **esportazione** o **upload FTP** viene inviata una **email di riepilogo**
+con il foglio XLS in allegato, indirizzata di default all'**utente collegato**
+(il suo username è la sua email). In *Configurazioni → Accesso e SMTP* si può
+disattivare la notifica o impostare una **mailbox condivisa** come override
+(destinatario *utente*, *condivisa* o *entrambi*).
 
 ## Configurazioni
 
