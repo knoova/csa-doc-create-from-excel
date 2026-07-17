@@ -299,7 +299,9 @@
     "exportedOneBody": "{{count}} record esportato.",
     "colActions": "Azioni",
     "mailSent": "· Riepilogo inviato a {{to}}.",
-    "mailFailed": "· Email di riepilogo non inviata (controlla l’SMTP)."
+    "mailFailed": "· Email di riepilogo non inviata (controlla l’SMTP).",
+    "ftpUploadLastHint": "Carica l’ultimo file esportato: {{file}}",
+    "ftpUploadPickHint": "Nessuna esportazione in questa sessione: scegli il file XLS da caricare"
   },
   "scadenze": {
     "title": "Scadenze",
