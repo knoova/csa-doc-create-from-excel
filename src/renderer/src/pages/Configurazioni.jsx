@@ -692,6 +692,44 @@ export default function Configurazioni({ visible = true, onThemeChange, onLangCh
               </label>
             </div>
           </div>
+
+          <div className="section-title" style={{ margin: '20px 0 4px', fontSize: 15 }}>{t('config.notifyHeading')}</div>
+          <div className="section-desc" style={{ margin: '0 0 12px' }}>{t('config.notifyHint')}</div>
+          <label className="toggle" style={{ marginBottom: 12 }}>
+            <input
+              type="checkbox"
+              checked={s.exportNotify?.enabled !== false}
+              onChange={(e) => patch({ exportNotify: { ...s.exportNotify, enabled: e.target.checked } })}
+            />
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            <span className="toggle-label">{t('config.notifyEnabled')}</span>
+          </label>
+          <div className="maschera-grid">
+            <div className="form-group">
+              <label className="form-label">{t('config.notifyRecipient')}</label>
+              <select
+                className="form-input"
+                value={s.exportNotify?.mode || 'user'}
+                disabled={s.exportNotify?.enabled === false}
+                onChange={(e) => patch({ exportNotify: { ...s.exportNotify, mode: e.target.value } })}
+              >
+                <option value="user">{t('config.notifyModeUser')}</option>
+                <option value="shared">{t('config.notifyModeShared')}</option>
+                <option value="both">{t('config.notifyModeBoth')}</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{t('config.notifyShared')}</label>
+              <input
+                className="form-input"
+                type="email"
+                placeholder={t('config.notifySharedPlaceholder')}
+                value={s.exportNotify?.sharedEmail || ''}
+                disabled={s.exportNotify?.enabled === false || (s.exportNotify?.mode || 'user') === 'user'}
+                onChange={(e) => patch({ exportNotify: { ...s.exportNotify, sharedEmail: e.target.value.trim() } })}
+              />
+            </div>
+          </div>
         </Panel>
         )}
 

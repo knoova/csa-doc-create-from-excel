@@ -52,6 +52,20 @@ function bakedEnv() {
   try { return (typeof __APP_ENV__ !== 'undefined' && __APP_ENV__) ? __APP_ENV__ : {} } catch (_) { return {} }
 }
 
+// Costruisce un profilo FTP dai valori d'ambiente per il prefisso indicato
+// (es. FTP_STAGING_* / FTP_PROD_*). Valori vuoti → profilo "vuoto" ma
+// comunque sovrascrivibile da Configurazioni.
+function ftpProfileFromEnv(env, prefix) {
+  return {
+    host: env[`${prefix}_HOST`] || '',
+    port: env[`${prefix}_PORT`] ? parseInt(env[`${prefix}_PORT`], 10) : 21,
+    user: env[`${prefix}_USER`] || '',
+    pass: env[`${prefix}_PASS`] || '',
+    secure: String(env[`${prefix}_SECURE`] || 'false').toLowerCase() === 'true',
+    dir: env[`${prefix}_DIR`] || ''
+  }
+}
+
 let cached = null
 
 export function getEnvConfig() {
@@ -66,6 +80,16 @@ export function getEnvConfig() {
       user: env.SMTP_USER || '',
       pass: env.SMTP_PASS || '',
       from: env.SMTP_FROM || env.SMTP_USER || ''
+    },
+    // Profili FTP precaricati a build-time (staging/prod), sovrascrivibili in app.
+    ftp: {
+      staging: ftpProfileFromEnv(env, 'FTP_STAGING'),
+      prod: ftpProfileFromEnv(env, 'FTP_PROD')
+    },
+    // Mailbox condivisa opzionale per i riepiloghi di esportazione (override).
+    exportNotify: {
+      sharedEmail: (env.EXPORT_NOTIFY_SHARED || '').trim(),
+      mode: (env.EXPORT_NOTIFY_MODE || '').trim().toLowerCase()
     },
     acceptedDomains: (env.ACCEPTED_DOMAINS || '')
       .split(',')

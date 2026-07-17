@@ -70,6 +70,22 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          # FTP staging/prod precaricati nella build (sovrascrivibili in-app)
+          FTP_STAGING_HOST: ${{ secrets.FTP_STAGING_HOST }}
+          FTP_STAGING_PORT: ${{ secrets.FTP_STAGING_PORT }}
+          FTP_STAGING_USER: ${{ secrets.FTP_STAGING_USER }}
+          FTP_STAGING_PASS: ${{ secrets.FTP_STAGING_PASS }}
+          FTP_STAGING_SECURE: ${{ secrets.FTP_STAGING_SECURE }}
+          FTP_STAGING_DIR: ${{ secrets.FTP_STAGING_DIR }}
+          FTP_PROD_HOST: ${{ secrets.FTP_PROD_HOST }}
+          FTP_PROD_PORT: ${{ secrets.FTP_PROD_PORT }}
+          FTP_PROD_USER: ${{ secrets.FTP_PROD_USER }}
+          FTP_PROD_PASS: ${{ secrets.FTP_PROD_PASS }}
+          FTP_PROD_SECURE: ${{ secrets.FTP_PROD_SECURE }}
+          FTP_PROD_DIR: ${{ secrets.FTP_PROD_DIR }}
+          # Mailbox condivisa opzionale per i riepiloghi (override)
+          EXPORT_NOTIFY_SHARED: ${{ secrets.EXPORT_NOTIFY_SHARED }}
+          EXPORT_NOTIFY_MODE: ${{ vars.EXPORT_NOTIFY_MODE }}
 
       - name: Build Windows installer (NSIS)
         run: npx electron-builder --win --publish never

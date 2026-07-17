@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Crea un file `.env.local` (non committato) con SMTP e domini autorizzati:
+Crea un file `.env.local` (non committato) con SMTP, domini autorizzati e (opzionale) i profili FTP:
 
 ```
 SMTP_HOST=...
@@ -29,9 +29,27 @@ SMTP_USER=...
 SMTP_PASS=...
 SMTP_FROM=...
 ACCEPTED_DOMAINS=dominio1.it,dominio2.it
+
+# FTP precaricato a build-time (sovrascrivibile in app)
+FTP_STAGING_HOST=...
+FTP_STAGING_PORT=21
+FTP_STAGING_USER=...
+FTP_STAGING_PASS=...
+FTP_STAGING_SECURE=false
+FTP_STAGING_DIR=/public_html/export
+FTP_PROD_HOST=...
+FTP_PROD_PORT=21
+FTP_PROD_USER=...
+FTP_PROD_PASS=...
+FTP_PROD_SECURE=false
+FTP_PROD_DIR=/public_html/export
+
+# Riepiloghi esportazione (opzionale): mailbox condivisa di override
+EXPORT_NOTIFY_SHARED=esportazioni@azienda.it
+EXPORT_NOTIFY_MODE=user   # user | shared | both
 ```
 
-In produzione gli stessi parametri sono modificabili da **Configurazioni → Accesso e SMTP**.
+In produzione gli stessi parametri sono modificabili da **Configurazioni → Accesso e SMTP** e **Configurazioni → FTP**. I valori `.env.local`/build fanno solo da **default precaricati**: qualsiasi modifica salvata in app li sovrascrive.
 
 ## Build (Windows)
 
@@ -58,8 +76,22 @@ scorso / corrente / prossimo**.
 
 In *Configurazioni → FTP* si salvano i dati di connessione (host, porta,
 utente, password, cartella remota, FTPS) per **staging** e **produzione**, con
-test di connessione. Dopo un'esportazione, dalla pagina *Record* si può
+test di connessione. I profili possono essere **precaricati a build-time** dalle
+env var `FTP_STAGING_*` / `FTP_PROD_*` (GitHub Secrets in CI) e restano comunque
+**sovrascrivibili** dall'app. Dopo un'esportazione, dalla pagina *Record* si può
 caricare il file sul server con un click (upload tracciato nel Registro).
+
+## Esportazione del singolo record e notifiche email
+
+Ogni record può essere esportato **singolarmente** dalla **colonna Azioni** in
+fondo alla tabella *Record* o dal pulsante **Esporta** nella maschera di
+dettaglio — anche se **già archiviato** (ri-esportazione senza cambio di stato).
+
+A ogni **esportazione** o **upload FTP** viene inviata una **email di riepilogo**
+con il foglio XLS in allegato, indirizzata di default all'**utente collegato**
+(il suo username è la sua email). In *Configurazioni → Accesso e SMTP* si può
+disattivare la notifica o impostare una **mailbox condivisa** come override
+(destinatario *utente*, *condivisa* o *entrambi*).
 
 ## Configurazioni
 

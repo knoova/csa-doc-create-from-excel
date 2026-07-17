@@ -207,7 +207,16 @@
     "save": "Save settings",
     "saved": "Settings saved!",
     "resetDefaults": "Reset to defaults",
-    "confirmReset": "Reset fields to the default configuration?"
+    "confirmReset": "Reset fields to the default configuration?",
+    "notifyHeading": "Export notifications",
+    "notifyEnabled": "Send a summary email on export and FTP upload",
+    "notifyRecipient": "Recipient",
+    "notifyModeUser": "Logged-in user",
+    "notifyModeShared": "Shared mailbox (override)",
+    "notifyModeBoth": "User + shared mailbox",
+    "notifyShared": "Shared mailbox",
+    "notifySharedPlaceholder": "exports@company.com",
+    "notifyHint": "The summary with the XLS attached is sent to the logged-in user (their username). Set a shared mailbox and pick the override to send it there."
   },
   "registro": {
     "title": "Activity log",
@@ -276,7 +285,12 @@
     "ftpPrompt": "Upload “{{file}}” to the server:",
     "ftpUpload_staging": "Upload to staging FTP",
     "ftpUpload_prod": "Upload to production FTP",
-    "ftpUploaded": "File uploaded to {{env}}: {{path}}"
+    "ftpUploaded": "File uploaded to {{env}}: {{path}}",
+    "exportOne": "Export",
+    "exportedOneBody": "{{count}} record exported.",
+    "colActions": "Actions",
+    "mailSent": "· Summary sent to {{to}}.",
+    "mailFailed": "· Summary email not sent (check SMTP)."
   },
   "scadenze": {
     "title": "Expirations",
