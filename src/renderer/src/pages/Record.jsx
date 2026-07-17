@@ -154,13 +154,14 @@ export default function Record({ visible }) {
     }
   }
 
+  // Carica su FTP l'ultimo XLS esportato in questa sessione; se non ce n'è uno,
+  // il main apre un selettore per scegliere il file .xlsx da caricare.
   const ftpUpload = async (env) => {
-    if (!lastExport) return
     setFtpBusy(env); setFtpPct(0); setBanner(null)
     try {
-      const res = await window.electronAPI.ftpUpload(env, lastExport)
+      const res = await window.electronAPI.ftpUpload(env, lastExport || null)
       if (res?.ok) setBanner({ type: 'success', msg: t('record.ftpUploaded', { env, path: res.remotePath }) + notifyNote(res.notify) })
-      else setBanner({ type: 'error', msg: res?.error || t('common.error') })
+      else if (res?.reason !== 'canceled') setBanner({ type: 'error', msg: res?.error || t('common.error') })
     } catch (e) {
       setBanner({ type: 'error', msg: String(e?.message || e) })
     } finally {
@@ -319,6 +320,21 @@ export default function Record({ visible }) {
           <button className="btn btn-secondary" onClick={() => renew(selectedIds)} disabled={busy || selectedIds.length === 0}>
             {t('record.renewSelected')} ({selectedIds.length})
           </button>
+          {ftpEnvs.map((env) => (
+            <button
+              key={`up_${env}`}
+              className="btn btn-secondary"
+              onClick={() => ftpUpload(env)}
+              disabled={!!ftpBusy}
+              title={lastExport
+                ? t('record.ftpUploadLastHint', { file: lastExport.replace(/^.*[/\\]/, '') })
+                : t('record.ftpUploadPickHint')}
+            >
+              {ftpBusy === env ? <span className="spinner spinner-sm" /> : null}
+              {' '}{t(`record.ftpUpload_${env}`)}
+              {ftpBusy === env && ftpPct != null && ` (${ftpPct}%)`}
+            </button>
+          ))}
         </div>
 
         <div className="flex gap-2 items-center" style={{ marginBottom: 14, flexWrap: 'wrap' }}>

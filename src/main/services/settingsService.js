@@ -28,6 +28,16 @@ function defaultFtpProfile(env, key) {
   return { ...emptyFtpProfile(), ...((env.ftp || {})[key] || {}) }
 }
 
+// Fonde il profilo salvato con quello precaricato da env. Finché l'utente non ha
+// impostato un proprio host, il profilo è "non configurato" e usa interamente i
+// valori da env (precompilazione). Appena c'è un host salvato, vince il salvato
+// (override completo), così l'utente può anche svuotare i campi ereditati.
+function mergeFtpProfile(envDefault, saved) {
+  const s = saved || {}
+  const base = String(s.host || '').trim() ? s : envDefault
+  return { ...emptyFtpProfile(), ...base }
+}
+
 // Default delle notifiche di esportazione: il riepilogo va sempre all'utente
 // collegato; una mailbox condivisa (env o Configurazioni) può fare da override.
 function defaultExportNotify(env) {
@@ -87,12 +97,17 @@ export function getSettings() {
     if (!Array.isArray(merged.attachments)) merged.attachments = defaults.attachments
     if (!merged.templateId) merged.templateId = defaults.templateId
     merged.smtp = { ...defaults.smtp, ...(saved.smtp || {}) }
-    // I valori salvati sovrascrivono i default precaricati da env (override).
+    // Precompilazione da env finché l'utente non configura il proprio host;
+    // poi il profilo salvato ha la precedenza (vedi mergeFtpProfile).
     merged.ftp = {
-      staging: { ...defaults.ftp.staging, ...((saved.ftp || {}).staging || {}) },
-      prod: { ...defaults.ftp.prod, ...((saved.ftp || {}).prod || {}) }
+      staging: mergeFtpProfile(defaults.ftp.staging, (saved.ftp || {}).staging),
+      prod: mergeFtpProfile(defaults.ftp.prod, (saved.ftp || {}).prod)
     }
     merged.exportNotify = { ...defaults.exportNotify, ...(saved.exportNotify || {}) }
+    // La mailbox condivisa da env riempie il campo se il salvato è vuoto.
+    if (!String(merged.exportNotify.sharedEmail || '').trim() && defaults.exportNotify.sharedEmail) {
+      merged.exportNotify.sharedEmail = defaults.exportNotify.sharedEmail
+    }
     if (!Array.isArray(merged.acceptedDomains) || merged.acceptedDomains.length === 0) {
       merged.acceptedDomains = defaults.acceptedDomains
     }

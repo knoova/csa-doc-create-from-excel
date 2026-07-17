@@ -299,7 +299,9 @@
     "exportedOneBody": "{{count}} record exported.",
     "colActions": "Actions",
     "mailSent": "· Summary sent to {{to}}.",
-    "mailFailed": "· Summary email not sent (check SMTP)."
+    "mailFailed": "· Summary email not sent (check SMTP).",
+    "ftpUploadLastHint": "Upload the last exported file: {{file}}",
+    "ftpUploadPickHint": "No export in this session: pick the XLS file to upload"
   },
   "scadenze": {
     "title": "Expirations",

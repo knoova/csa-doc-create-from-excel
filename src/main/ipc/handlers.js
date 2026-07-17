@@ -282,6 +282,18 @@ export function registerHandlers(ipcMain, getMainWindow) {
     const session = getSession()
     const user = session?.email || 'sconosciuto'
     const win = getMainWindow()
+    // Se non arriva un file (nessuna esportazione in questa sessione), chiedi
+    // all'utente quale XLS caricare.
+    if (!filePath) {
+      const res = await dialog.showOpenDialog(win, {
+        title: 'Scegli il file XLS da caricare su FTP',
+        defaultPath: getSettings().lastOutputDir || undefined,
+        filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
+        properties: ['openFile']
+      })
+      if (res.canceled || !res.filePaths[0]) return { ok: false, reason: 'canceled' }
+      filePath = res.filePaths[0]
+    }
     let total = 0
     try { total = statSync(filePath).size } catch (_) {}
     try {
