@@ -57,16 +57,35 @@ EXPORT_NOTIFY_MODE=user   # user | shared | both
 
 In produzione gli stessi parametri sono modificabili da **Configurazioni → Accesso e SMTP** e **Configurazioni → FTP**. I valori `.env.local`/build fanno solo da **default precaricati**: qualsiasi modifica salvata in app li sovrascrive.
 
-## Build (Windows)
+## Build (Windows / macOS)
 
 ```bash
 npm run build                       # bundle electron-vite
 npx electron-builder --win          # installer NSIS x64 in dist/
+npx electron-builder --mac          # .dmg (arm64 + x64) in dist/
 ```
 
 La **CI** (`.github/workflows/release.yml`) ad ogni push su `main`: incrementa la
-patch in `package.json`, builda su `windows-latest` e pubblica la GitHub Release
-con l'`.exe`.
+patch in `package.json`, builda in matrice su `windows-latest` e `macos-latest` e
+pubblica sulla stessa GitHub Release l'`.exe` (Windows) e il `.dmg` (macOS).
+
+### macOS: "CSA Adesioni è danneggiato e non può essere aperto"
+
+Il `.dmg` **non è firmato né notarizzato** da Apple (non abbiamo un account Apple
+Developer). Perciò, dopo il download dal browser, macOS lo mette in *quarantena* e
+mostra l'avviso *"'CSA Adesioni' è danneggiato e non può essere aperto"* (su Apple
+Silicon è il messaggio standard per le app senza firma). **Non è un file rotto.**
+
+Per aprirla, dopo aver trascinato l'app in **Applicazioni**, esegui una volta da
+**Terminale**:
+
+```bash
+xattr -cr "/Applications/CSA Adesioni.app"
+```
+
+Il comando rimuove l'attributo di quarantena e l'app si apre normalmente. Va
+ripetuto dopo ogni aggiornamento. (Per eliminare del tutto l'avviso servirebbe la
+firma + notarizzazione con un account Apple Developer a pagamento.)
 
 ### Configurazione build via GitHub (Settings → Secrets and variables → Actions)
 

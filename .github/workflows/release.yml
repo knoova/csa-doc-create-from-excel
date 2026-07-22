@@ -127,6 +127,11 @@ jobs:
             |-------------|------|
             | Windows     | `.exe` (installer NSIS x64) |
             | macOS       | `.dmg` (Apple Silicon arm64 + Intel x64) |
+
+            > **macOS** — il `.dmg` non è firmato/notarizzato: al primo avvio macOS
+            > mostra *"CSA Adesioni è danneggiato e non può essere aperto"*. Non è un
+            > file rotto. Trascina l'app in **Applicazioni** ed esegui una volta da
+            > Terminale: `xattr -cr "/Applications/CSA Adesioni.app"`, poi riaprila.
           files: |
             dist/*.exe
             dist/*.dmg
