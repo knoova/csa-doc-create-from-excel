@@ -89,6 +89,21 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "writeUpdateInfo": true
     }
   }
 }
